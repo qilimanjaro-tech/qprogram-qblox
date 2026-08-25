@@ -13,24 +13,24 @@
 # limitations under the License.
 """Capability profile bundles for the Qblox vendor extension.
 
-Defines :data:`QBLOX_DEFAULT_V1`, the bus-level profile describing what a qblox-driven bus can do:
-the pulse, timing and parameter operations, every waveform class the sequencers render, the
-measurement fields a readout produces, and the ``vendor.qblox.*`` operations. Qblox drives its
-sequencers in real time, so a platform fills a bus slot's ``rt`` half with it; the platform slot is
-filled by the core-shipped ``qprogram-base-v1``, which carries the block, sweep and expression
-tokens. Together the two give a complete :class:`~qprogram.PlatformCapabilities` shape.
+Defines [`QBLOX_DEFAULT_V1`][qprogram_qblox.QBLOX_DEFAULT_V1], the bus-level profile describing what a qblox-driven bus
+can do: the pulse, timing and parameter operations, every waveform class the sequencers render, the measurement fields a
+readout produces, and the ``vendor.qblox.*`` operations. Qblox drives its sequencers in real time, so a platform fills a
+bus slot's ``rt`` half with it; the platform slot is filled by the core-shipped ``qprogram-base-v1``, which carries the
+block, sweep and expression tokens. Together the two give a complete
+[`PlatformCapabilities`][qprogram.PlatformCapabilities] shape.
 
 Two predicates travel with the profile:
 
-- :func:`_reject_arbitrary_sweep_at_wait_duration`, a hard :class:`~qprogram.Diagnostic`. The
+- `_reject_arbitrary_sweep_at_wait_duration`, a hard [`Diagnostic`][qprogram.Diagnostic]. The
   operand register of the qblox wait instruction advances by a fixed step, so a duration swept from
   an arbitrary source fits no execution model qblox can compile, real-time or host-side.
-- :func:`_drag_sigma_in_loop_is_host_only`, a soft :class:`~qprogram.DomainConstraint`. The
-  sequencer cannot recompute an :class:`~qprogram.waveforms.IQDrag` envelope between iterations, but
+- `_drag_sigma_in_loop_is_host_only`, a soft [`DomainConstraint`][qprogram.DomainConstraint]. The
+  sequencer cannot recompute an [`IQDrag`][qprogram.waveforms.IQDrag] envelope between iterations, but
   the host can dispatch one shot per iteration. The constraint excludes ``"rt"`` alone, so the
   binding loop classifies as ``{host}`` while the ``play`` inside it stays real-time.
 
-Registered as a side effect of importing :mod:`qprogram_qblox`.
+Registered as a side effect of importing `qprogram_qblox`.
 """
 
 from __future__ import annotations
@@ -77,17 +77,17 @@ def _reject_arbitrary_sweep_at_wait_duration(
 
     The qblox wait instruction takes one integer cycle count, and the register holding it advances
     by a fixed step, so the hardware can only walk a duration that is an exact ``start + step * i``
-    ramp. The predicate asks :meth:`~qprogram.ValidationContext.sweep_kind_of` how the variable at
-    :attr:`~qprogram.operations.Wait.duration` is bound and fires when the binding
-    :class:`~qprogram.blocks.Sweep`'s source declares ``KIND = "arbitrary"``:
-    :class:`~qprogram.sweeps.Values`, :class:`~qprogram.sweeps.Logspace`,
-    :class:`~qprogram.sweeps.File`, and every combinator around them. A linear source
-    (:class:`~qprogram.sweeps.Range`, :class:`~qprogram.sweeps.Linspace`) passes, and so does a
+    ramp. The predicate asks [`sweep_kind_of`][qprogram.ValidationContext.sweep_kind_of] how the variable at
+    `duration` is bound and fires when the binding
+    [`Sweep`][qprogram.blocks.Sweep]'s source declares ``KIND = "arbitrary"``:
+    [`Values`][qprogram.sweeps.Values], [`Logspace`][qprogram.sweeps.Logspace],
+    [`File`][qprogram.sweeps.File], and every combinator around them. A linear source
+    ([`Range`][qprogram.sweeps.Range], [`Linspace`][qprogram.sweeps.Linspace]) passes, and so does a
     constant duration, which is not loop-bound at all.
 
     Host-side dispatch cannot rescue the combination, since qblox still has to emit the wait
-    instruction per shot. That is why this is a :class:`~qprogram.Diagnostic` rather than a
-    :class:`~qprogram.DomainConstraint`.
+    instruction per shot. That is why this is a [`Diagnostic`][qprogram.Diagnostic] rather than a
+    [`DomainConstraint`][qprogram.DomainConstraint].
 
     Args:
         node (Operation | Block): The AST node currently being checked.
@@ -95,7 +95,7 @@ def _reject_arbitrary_sweep_at_wait_duration(
             bound.
 
     Yields:
-        One ``"qblox.arbitrary-wait-sweep"`` error :class:`~qprogram.Diagnostic` when ``node`` is a
+        One ``"qblox.arbitrary-wait-sweep"`` error [`Diagnostic`][qprogram.Diagnostic] when ``node`` is a
         ``wait`` whose duration variable is bound to an arbitrary source. Nothing otherwise.
     """
     if not isinstance(node, Wait):
@@ -126,10 +126,10 @@ def _drag_sigma_in_loop_is_host_only(
     cannot recompute a Drag envelope's ``sigma`` between iterations: the gaussian and its derivative
     are sampled once, at upload. Sweeping ``sigma`` therefore means re-uploading the waveform per
     iteration, which the enclosing loop can only do host-side, one qblox shot at a time. The
-    :class:`~qprogram.operations.Play` itself stays real-time; what changes is how the loop around it
+    [`Play`][qprogram.operations.Play] itself stays real-time; what changes is how the loop around it
     iterates.
 
-    The constraint targets the loop returned by :meth:`~qprogram.ValidationContext.binding_loop_of`,
+    The constraint targets the loop returned by [`binding_loop_of`][qprogram.ValidationContext.binding_loop_of],
     not the ``Play``, because that is the node whose iteration mechanism is at stake. The classifier
     subtracts ``"rt"`` from the loop's support and dispatches the ``Play`` as one real-time shot per
     host-side iteration. A ``sigma`` that no loop binds is a constant at upload time and is left
@@ -140,8 +140,8 @@ def _drag_sigma_in_loop_is_host_only(
         ctx (ValidationContext): Validation context, used to find the loop that binds ``sigma``.
 
     Yields:
-        One :class:`~qprogram.DomainConstraint` excluding ``"rt"`` from the binding loop, when
-        ``node`` is a ``play`` of an :class:`~qprogram.waveforms.IQDrag` whose ``sigma`` is a
+        One [`DomainConstraint`][qprogram.DomainConstraint] excluding ``"rt"`` from the binding loop, when
+        ``node`` is a ``play`` of an [`IQDrag`][qprogram.waveforms.IQDrag] whose ``sigma`` is a
         loop-bound variable. Nothing otherwise.
     """
     if not isinstance(node, Play) or not isinstance(node.waveform, IQDrag):
@@ -202,7 +202,7 @@ _WAVEFORMS: frozenset[str] = frozenset(
 
 Two levels, both bus-level because a waveform only reaches the hardware through a bus: the channel
 kind (``waveform.single`` and ``waveform.iq``, since qblox drives both single-channel and IQ buses),
-``waveform.alias`` for a name a :class:`~qprogram.WaveformLibrary` resolves later, and one per-class
+``waveform.alias`` for a name a [`WaveformLibrary`][qprogram.WaveformLibrary] resolves later, and one per-class
 token for each envelope the sequencers can sample.
 """
 
@@ -215,9 +215,9 @@ _FIELDS: frozenset[str] = frozenset(
 )
 """Measurement fields a qblox readout produces.
 
-All three core members of :class:`~qprogram.MeasurementField`: the integrated IQ point, the raw ADC
-trace, and the thresholded state. :class:`~qprogram.operations.Measure` and
-:meth:`~qprogram_qblox.QbloxNamespace.acquire` attach a ``measure.fields.<name>`` token per
+All three core members of [`MeasurementField`][qprogram.MeasurementField]: the integrated IQ point, the raw ADC
+trace, and the thresholded state. [`Measure`][qprogram.operations.Measure] and
+[`acquire`][qprogram_qblox.QbloxNamespace.acquire] attach a ``measure.fields.<name>`` token per
 requested field and both target a bus, which is why the tokens are bus-level.
 """
 
@@ -252,8 +252,8 @@ QBLOX_DEFAULT_V1 = Profile(
 )
 """The default Qblox bus-level capability profile.
 
-Holds every token a qblox-driven bus accepts (:data:`_BUS_OPS`, :data:`_WAVEFORMS`, :data:`_FIELDS`
-and :data:`_VENDOR`), the ``min_wait_duration_ns`` floor of the wait instruction, and the two
+Holds every token a qblox-driven bus accepts (`_BUS_OPS`, `_WAVEFORMS`, `_FIELDS`
+and `_VENDOR`), the ``min_wait_duration_ns`` floor of the wait instruction, and the two
 predicates above. It carries no ``block.*``, ``sweep.*`` or ``expr.*`` token: those route to the
 platform slot, which a qblox platform fills from ``qprogram-base-v1``.
 
@@ -264,7 +264,7 @@ profile of your own that declares ``extends="qblox-default-v1"`` and lists only 
 
 
 def _register() -> None:
-    """Idempotently register :data:`QBLOX_DEFAULT_V1` on the global profile registry."""
+    """Idempotently register [`QBLOX_DEFAULT_V1`][qprogram_qblox.QBLOX_DEFAULT_V1] on the global profile registry."""
     register_profile(QBLOX_DEFAULT_V1)
 
 

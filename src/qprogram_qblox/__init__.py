@@ -16,27 +16,29 @@
 This package provides:
 
 1. **Runtime registration**: importing this package registers the ``qblox`` vendor namespace on
-   :class:`~qprogram.QProgram`, registers every Qblox operation with the ``.qp`` serializer, and
+   [`QProgram`][qprogram.QProgram], registers every Qblox operation with the ``.qp`` serializer, and
    registers the ``qblox-default-v1`` capability profile.
 
-2. **Typed mixin**: :class:`QbloxMixin` adds a typed ``.qblox`` property for IDE autocomplete.
+2. **Typed mixin**: [`QbloxMixin`][qprogram_qblox.QbloxMixin] adds a typed ``.qblox`` property for IDE autocomplete.
 
-3. **Pre-combined QProgram**: :class:`QProgram` from this package has ``.qblox`` typed out of the
+3. **Pre-combined QProgram**: [`QProgram`][qprogram_qblox.QProgram] from this package has ``.qblox`` typed out of the
    box.
 
 The import is the activation step, and a caller reading a ``.qp`` file need not perform it: the
-``qprogram.vendors`` entry point this package declares lets :func:`qprogram.loads` import the module
+``qprogram.vendors`` entry point this package declares lets `qprogram.loads` import the module
 on demand when it meets a ``require qblox`` header.
 
 The operations span both kinds a vendor extension can offer, since QProgram draws no line between
 real-time and host-side execution:
 
-- one-to-one sequencer instructions (:meth:`QbloxNamespace.acquire`,
-  :meth:`QbloxNamespace.set_markers`, :meth:`QbloxNamespace.set_trigger`,
-  :meth:`QbloxNamespace.wait_trigger`);
-- host-side-only operations (:meth:`QbloxNamespace.set_acquisition_threshold`,
-  :meth:`QbloxNamespace.set_acquisition_rotation`), each a slow-control parameter write at execution
-  time rather than a sequencer instruction.
+- one-to-one sequencer instructions ([`QbloxNamespace.acquire`][qprogram_qblox.QbloxNamespace.acquire],
+  [`QbloxNamespace.set_markers`][qprogram_qblox.QbloxNamespace.set_markers],
+  [`QbloxNamespace.set_trigger`][qprogram_qblox.QbloxNamespace.set_trigger],
+  [`QbloxNamespace.wait_trigger`][qprogram_qblox.QbloxNamespace.wait_trigger]);
+- host-side-only operations
+  ([`QbloxNamespace.set_acquisition_threshold`][qprogram_qblox.QbloxNamespace.set_acquisition_threshold],
+  [`QbloxNamespace.set_acquisition_rotation`][qprogram_qblox.QbloxNamespace.set_acquisition_rotation]), each a
+  slow-control parameter write at execution time rather than a sequencer instruction.
 
 Both spell the same way in ``.qp`` (``qblox.<op_name> <args>``); the platform decides at execution
 time how to realize each one. A third kind is possible and is not among the operations here: an
@@ -140,9 +142,9 @@ _register_qblox_profile()
 
 
 class QProgram(QbloxMixin, _BaseQProgram):
-    """:class:`~qprogram.QProgram` pre-combined with :class:`QbloxMixin`.
+    """[`QProgram`][qprogram.QProgram] pre-combined with [`QbloxMixin`][qprogram_qblox.QbloxMixin].
 
-    Identical to :class:`qprogram.QProgram` but with IDE autocomplete for ``qp.qblox.*``.
+    Identical to [`qprogram.QProgram`][] but with IDE autocomplete for ``qp.qblox.*``.
     """
 
 

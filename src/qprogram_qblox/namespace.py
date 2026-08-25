@@ -11,13 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Typed :class:`~qprogram.VendorNamespace` for Qblox operations.
+"""Typed [`VendorNamespace`][qprogram.VendorNamespace] for Qblox operations.
 
-Each method on :class:`QbloxNamespace` is a typed wrapper that builds the matching
-:class:`~qprogram.operations.Operation` subclass from :mod:`qprogram_qblox.operations` and appends
+Each method on [`QbloxNamespace`][qprogram_qblox.QbloxNamespace] is a typed wrapper that builds the matching
+[`Operation`][qprogram.operations.Operation] subclass from `qprogram_qblox.operations` and appends
 it to the program's active block. This is where explicit parameter types live, so editors complete
 and type-checkers check ``program.qblox.<operation>(...)``. The dynamic ``__getattr__`` on
-:class:`~qprogram.QProgram` dispatches the same calls at runtime; the typed namespace is what makes
+[`QProgram`][qprogram.QProgram] dispatches the same calls at runtime; the typed namespace is what makes
 them discoverable.
 """
 
@@ -48,8 +48,8 @@ if TYPE_CHECKING:
 class QbloxNamespace(VendorNamespace):
     """Qblox vendor namespace, reached as ``program.qblox.<operation>()``.
 
-    Attached to every :class:`~qprogram.QProgram` instance as ``.qblox`` once the
-    :mod:`qprogram_qblox` package is imported. Each method validates its arguments through the typed
+    Attached to every [`QProgram`][qprogram.QProgram] instance as ``.qblox`` once the
+    `qprogram_qblox` package is imported. Each method validates its arguments through the typed
     signature, constructs the matching operation, and appends it to the program's currently active
     block.
     """
@@ -62,10 +62,10 @@ class QbloxNamespace(VendorNamespace):
         *,
         name: str | None = None,
     ) -> MeasurementHandle:
-        """Append an :class:`~qprogram_qblox.operations.Acquire` operation.
+        """Append an [`Acquire`][qprogram_qblox.Acquire] operation.
 
         The handle's name comes from the same per-bus counter core
-        :meth:`~qprogram.QProgram.measure` draws on, so two acquisitions on ``q[0].readout`` produce
+        [`measure`][qprogram.QProgram.measure] draws on, so two acquisitions on ``q[0].readout`` produce
         ``q0/readout/m0`` and ``q0/readout/m1`` whether or not a core ``measure`` also runs on that
         qubit. A raw-string bus carries no coordinates to build that prefix from, so it falls back
         to the bare ``m0``, ``m1``, ... counter shared by every raw-string measurement.
@@ -73,20 +73,20 @@ class QbloxNamespace(VendorNamespace):
         Args:
             bus (str): Readout bus to acquire on.
             weights (IQWaveform | str): Integration weights, either a concrete
-                :class:`~qprogram.waveforms.IQWaveform` or a string alias.
+                [`IQWaveform`][qprogram.waveforms.IQWaveform] or a string alias.
             fields (Iterable[MeasurementField]): Which measurement fields to produce, as an iterable
-                of :class:`~qprogram.MeasurementField` members. Default ``(MeasurementField.IQ,)``;
-                :attr:`~qprogram.MeasurementField.RAW` asks for the raw ADC trace.
+                of [`MeasurementField`][qprogram.MeasurementField] members. Default ``(MeasurementField.IQ,)``;
+                `RAW` asks for the raw ADC trace.
             name (str | None): Explicit measurement name. Auto-allocated when omitted.
 
         Returns:
-            The :class:`~qprogram.MeasurementHandle` this acquisition writes to, for retrieving the
+            The [`MeasurementHandle`][qprogram.MeasurementHandle] this acquisition writes to, for retrieving the
             result and for referencing the outcome in a conditional.
 
         Raises:
             ValidationError: If ``name`` is empty, is not a string, or is already used by another
                 measurement in the program, if ``fields`` names a field that is not registered, or
-                if ``bus`` is a :class:`~qprogram.BusRef` from another schema than the one attached
+                if ``bus`` is a [`BusRef`][qprogram.BusRef] from another schema than the one attached
                 to the program.
         """
         return self._append_measurement(
@@ -98,14 +98,14 @@ class QbloxNamespace(VendorNamespace):
         )
 
     def set_markers(self, bus: str, mask: str) -> None:
-        """Append a :class:`~qprogram_qblox.operations.SetMarkers` operation.
+        """Append a [`SetMarkers`][qprogram_qblox.SetMarkers] operation.
 
         Args:
             bus (str): Bus whose marker outputs to drive.
             mask (str): Four characters of ``0`` and ``1``, one per marker line, e.g. ``"0001"``.
 
         Raises:
-            ValidationError: If ``bus`` is a :class:`~qprogram.BusRef` from another schema than the
+            ValidationError: If ``bus`` is a [`BusRef`][qprogram.BusRef] from another schema than the
                 one attached to the program.
         """
         self._append(SetMarkers(bus=bus, mask=mask))
@@ -117,7 +117,7 @@ class QbloxNamespace(VendorNamespace):
         outputs: list[int] | int | None = None,
         position: str = "start",
     ) -> None:
-        """Append a :class:`~qprogram_qblox.operations.SetTrigger` operation.
+        """Append a [`SetTrigger`][qprogram_qblox.SetTrigger] operation.
 
         Args:
             bus (str): Bus whose trigger outputs to arm.
@@ -128,13 +128,13 @@ class QbloxNamespace(VendorNamespace):
                 ``"end"``. Default ``"start"``.
 
         Raises:
-            ValidationError: If ``bus`` is a :class:`~qprogram.BusRef` from another schema than the
+            ValidationError: If ``bus`` is a [`BusRef`][qprogram.BusRef] from another schema than the
                 one attached to the program.
         """
         self._append(SetTrigger(bus=bus, duration=duration, outputs=outputs, position=position))
 
     def wait_trigger(self, bus: str, duration: int, port: int | None = None) -> None:
-        """Append a :class:`~qprogram_qblox.operations.WaitTrigger` operation.
+        """Append a [`WaitTrigger`][qprogram_qblox.WaitTrigger] operation.
 
         Args:
             bus (str): Bus whose sequencer waits.
@@ -143,13 +143,13 @@ class QbloxNamespace(VendorNamespace):
                 platform.
 
         Raises:
-            ValidationError: If ``bus`` is a :class:`~qprogram.BusRef` from another schema than the
+            ValidationError: If ``bus`` is a [`BusRef`][qprogram.BusRef] from another schema than the
                 one attached to the program.
         """
         self._append(WaitTrigger(bus=bus, duration=duration, port=port))
 
     def set_acquisition_threshold(self, bus: str, value: float | Expression) -> None:
-        """Append a :class:`~qprogram_qblox.operations.SetAcquisitionThreshold` operation.
+        """Append a [`SetAcquisitionThreshold`][qprogram_qblox.SetAcquisitionThreshold] operation.
 
         Host-side-only: the platform realizes it as a slow-control parameter write at execution
         time, not as a sequencer instruction. A vendor namespace can expose operations whose effect
@@ -159,29 +159,29 @@ class QbloxNamespace(VendorNamespace):
         Args:
             bus (str): Readout bus whose discrimination threshold to set.
             value (float | Expression): Threshold, in volts after integration. Accepts an
-                :class:`~qprogram.Expression` so an enclosing loop can sweep it.
+                [`Expression`][qprogram.Expression] so an enclosing loop can sweep it.
 
         Raises:
-            ValidationError: If ``bus`` is a :class:`~qprogram.BusRef` from another schema than the
+            ValidationError: If ``bus`` is a [`BusRef`][qprogram.BusRef] from another schema than the
                 one attached to the program.
         """
         self._append(SetAcquisitionThreshold(bus=bus, value=value))
 
     def set_acquisition_rotation(self, bus: str, angle: float | Expression) -> None:
-        """Append a :class:`~qprogram_qblox.operations.SetAcquisitionRotation` operation.
+        """Append a [`SetAcquisitionRotation`][qprogram_qblox.SetAcquisitionRotation] operation.
 
-        The companion to :meth:`set_acquisition_threshold`: the integrated IQ point is rotated by
+        The companion to `set_acquisition_threshold`: the integrated IQ point is rotated by
         ``angle`` before the comparison against the threshold, so the two populations separate along
         one axis. Host-side-only as well, a parameter write rather than a sequencer instruction.
 
         Args:
             bus (str): Readout bus whose acquisition rotation to set.
             angle (float | Expression): Rotation angle in radians, the unit convention of core
-                :meth:`~qprogram.QProgram.set_phase`. Accepts an :class:`~qprogram.Expression` so an
+                [`set_phase`][qprogram.QProgram.set_phase]. Accepts an [`Expression`][qprogram.Expression] so an
                 enclosing loop can sweep it, which is how it is normally calibrated.
 
         Raises:
-            ValidationError: If ``bus`` is a :class:`~qprogram.BusRef` from another schema than the
+            ValidationError: If ``bus`` is a [`BusRef`][qprogram.BusRef] from another schema than the
                 one attached to the program.
         """
         self._append(SetAcquisitionRotation(bus=bus, angle=angle))

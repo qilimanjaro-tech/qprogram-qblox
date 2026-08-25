@@ -13,18 +13,20 @@
 # limitations under the License.
 """Qblox-specific Operation classes.
 
-Each class is a concrete :class:`~qprogram.operations.Operation` subclass that lives in the QProgram
+Each class is a concrete [`Operation`][qprogram.operations.Operation] subclass that lives in the QProgram
 AST. They are the data nodes: typed attributes plus the capability tokens they require, serialized
 to and from ``.qp`` by the vendor registry.
 
-They span both kinds of vendor operation. :class:`Acquire`, :class:`SetMarkers`,
-:class:`SetTrigger` and :class:`WaitTrigger` each map to one sequencer instruction;
-:class:`SetAcquisitionThreshold` and :class:`SetAcquisitionRotation` map to no sequencer instruction
-at all and are realized as slow-control parameter writes. The AST draws no distinction between the
-two, and neither does the ``.qp`` format.
+They span both kinds of vendor operation. [`Acquire`][qprogram_qblox.Acquire],
+[`SetMarkers`][qprogram_qblox.SetMarkers], [`SetTrigger`][qprogram_qblox.SetTrigger] and
+[`WaitTrigger`][qprogram_qblox.WaitTrigger] each map to one sequencer instruction;
+[`SetAcquisitionThreshold`][qprogram_qblox.SetAcquisitionThreshold] and
+[`SetAcquisitionRotation`][qprogram_qblox.SetAcquisitionRotation] map to no sequencer instruction at all and are
+realized as slow-control parameter writes. The AST draws no distinction between the two, and neither does the ``.qp``
+format.
 
-A class declares :attr:`~qprogram.operations.Operation.BUS_ATTRS` and
-:attr:`~qprogram.operations.Operation.WAVEFORM_ATTRS` only where its data shape differs from the
+A class declares `BUS_ATTRS` and
+`WAVEFORM_ATTRS` only where its data shape differs from the
 ``Operation`` defaults. The base class's introspection methods (``variables``, ``buses``,
 ``waveforms``, ``walk``) read those declarations, so no subclass here overrides them.
 """
@@ -48,23 +50,23 @@ class Acquire(MeasurementOperation):
 
     Where core ``measure`` plays a readout pulse and integrates the response, ``acquire`` only
     integrates, which is what a program wants when the pulse is driven separately. It is a
-    :class:`~qprogram.operations.operation.MeasurementOperation` like ``measure``, so it takes part
+    [`MeasurementOperation`][qprogram.operations.operation.MeasurementOperation] like ``measure``, so it takes part
     in the program's per-bus measurement-name counter: an ``acquire`` after a ``measure`` on the same
     qubit picks up the next free name on that qubit.
 
     Args:
         bus (str): Readout bus to acquire on.
         weights (IQWaveform | str): Integration weights, either a concrete
-            :class:`~qprogram.waveforms.IQWaveform` or a string alias resolved later by
-            :meth:`~qprogram.QProgram.with_waveforms`.
-        handle (MeasurementHandle): The canonical :class:`~qprogram.MeasurementHandle` for this
-            acquisition. See :class:`~qprogram.operations.Measure` for what the runtime writes onto
+            [`IQWaveform`][qprogram.waveforms.IQWaveform] or a string alias resolved later by
+            [`with_waveforms`][qprogram.QProgram.with_waveforms].
+        handle (MeasurementHandle): The canonical [`MeasurementHandle`][qprogram.MeasurementHandle] for this
+            acquisition. See [`Measure`][qprogram.operations.Measure] for what the runtime writes onto
             it and who reads it.
         fields (Iterable[MeasurementField]): Which measurement fields the platform produces, as an
-            iterable of :class:`~qprogram.MeasurementField` members. Default
-            ``(MeasurementField.IQ,)``. See :class:`~qprogram.operations.Measure` for the full
+            iterable of [`MeasurementField`][qprogram.MeasurementField] members. Default
+            ``(MeasurementField.IQ,)``. See [`Measure`][qprogram.operations.Measure] for the full
             description. Stored canonically ordered and deduplicated by
-            :func:`~qprogram.operations.operation.normalize_fields`.
+            [`normalize_fields`][qprogram.operations.operation.normalize_fields].
 
     Raises:
         ValidationError: If ``fields`` is a bare string, is not iterable, requests no field at all,
@@ -90,9 +92,9 @@ class Acquire(MeasurementOperation):
 
         ``waveform.iq`` is always required, since an acquisition integrates an IQ pair. String
         weights contribute ``waveform.alias``; concrete weights contribute the per-class token from
-        :func:`qprogram.protocol.waveform_token` when their class is registered. The
+        [`qprogram.protocol.waveform_token`][] when their class is registered. The
         ``measure.fields.<name>`` tokens come from
-        :meth:`~qprogram.operations.operation.MeasurementOperation.required_capabilities`.
+        [`required_capabilities`][qprogram.operations.operation.MeasurementOperation.required_capabilities].
         """
         from qprogram.protocol import waveform_token  # ruff: ignore[import-outside-top-level]
 
@@ -185,7 +187,7 @@ class SetAcquisitionThreshold(Operation):
     Args:
         bus (str): Readout bus whose discrimination threshold to set.
         value (float | Expression): Threshold, in volts after integration. Accepts an
-            :class:`~qprogram.Expression` for sweeps.
+            [`Expression`][qprogram.Expression] for sweeps.
     """
 
     def __init__(self, bus: str, value: float | Expression) -> None:
@@ -203,10 +205,10 @@ class SetAcquisitionRotation(Operation):
     """A new acquisition rotation angle on a readout bus.
 
     The other half of qblox's thresholded acquisition, and the sibling of
-    :class:`SetAcquisitionThreshold`: the integrated IQ point is rotated by this angle so that the
-    ground and excited populations separate along a single axis, and only then compared against the
-    threshold. Setting one without the other is legal, since they are independent parameters, but a
-    calibrated discrimination usually writes both.
+    [`SetAcquisitionThreshold`][qprogram_qblox.SetAcquisitionThreshold]: the integrated IQ point is rotated by this
+    angle so that the ground and excited populations separate along a single axis, and only then compared against the
+    threshold. Setting one without the other is legal, since they are independent parameters, but a calibrated
+    discrimination usually writes both.
 
     Host-side-only like the threshold: a slow-control parameter write at execution time, not a
     sequencer instruction.
@@ -214,8 +216,8 @@ class SetAcquisitionRotation(Operation):
     Args:
         bus (str): Readout bus whose acquisition rotation to set.
         angle (float | Expression): Rotation angle in **radians**, the unit convention of the core
-            phase operations (:class:`~qprogram.operations.SetPhase`). Accepts an
-            :class:`~qprogram.Expression` for sweeps, which is the usual way to calibrate it. Values
+            phase operations ([`SetPhase`][qprogram.operations.SetPhase]). Accepts an
+            [`Expression`][qprogram.Expression] for sweeps, which is the usual way to calibrate it. Values
             outside ``[0, 2π)`` are the platform's to normalize or reject, not this node's: a swept
             angle has no literal value to check at build time.
     """

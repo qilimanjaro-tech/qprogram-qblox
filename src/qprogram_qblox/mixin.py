@@ -14,8 +14,8 @@
 """Typed mixin that exposes the Qblox namespace as ``.qblox`` on a QProgram subclass.
 
 The mixin exists for the benefit of editors and type-checkers. At runtime the base
-:class:`~qprogram.QProgram`'s dynamic ``__getattr__`` already routes ``program.qblox.*`` to the
-registered :class:`~qprogram_qblox.namespace.QbloxNamespace`, but static tooling cannot see that
+[`QProgram`][qprogram.QProgram]'s dynamic ``__getattr__`` already routes ``program.qblox.*`` to the
+registered [`QbloxNamespace`][qprogram_qblox.QbloxNamespace], but static tooling cannot see that
 dispatch, so the mixin spells the namespace out as a typed ``@property``.
 
 One vendor, using the pre-combined class this package ships::
@@ -49,7 +49,7 @@ if TYPE_CHECKING:
 class QbloxMixin:
     """Mixin that adds a typed ``.qblox`` property to QProgram.
 
-    Compose it with :class:`qprogram.QProgram` through multiple inheritance to get editor
+    Compose it with [`qprogram.QProgram`][] through multiple inheritance to get editor
     autocomplete for the Qblox operations. The property caches the namespace on the program, so
     repeated ``program.qblox`` accesses return the same object.
     """
@@ -58,11 +58,11 @@ class QbloxMixin:
     def qblox(self: _BaseQProgram) -> QbloxNamespace:  # type: ignore[misc]
         """This program's typed Qblox namespace.
 
-        The first access builds a :class:`~qprogram_qblox.namespace.QbloxNamespace` bound to the
+        The first access builds a [`QbloxNamespace`][qprogram_qblox.QbloxNamespace] bound to the
         program and stores it under a private attribute; later accesses return that same instance.
-        Both the load and the store go through :class:`object` so they bypass the program's own
-        attribute hooks: a cache miss has to surface as a plain :exc:`AttributeError` here rather
-        than reach :class:`~qprogram.QProgram`'s vendor-registry ``__getattr__``.
+        Both the load and the store go through `object` so they bypass the program's own
+        attribute hooks: a cache miss has to surface as a plain `AttributeError` here rather
+        than reach [`QProgram`][qprogram.QProgram]'s vendor-registry ``__getattr__``.
         """
         try:
             return object.__getattribute__(self, "_qblox_ns")  # ruff: ignore[unnecessary-dunder-call]

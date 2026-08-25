@@ -142,9 +142,18 @@ These are the rules the project enforces. All of them are configured in
   documented in an `Args:` section on the **class** docstring, with no
   docstring on `__init__`, because `mkdocstrings` runs with
   `merge_init_into_class = true`.
-- **Cross-references use Sphinx roles.**
-  `` :class:`~qprogram.Expression` ``, `` :meth:`...` ``, `` :attr:`...` ``,
-  `` :func:`...` ``, `` :mod:`...` ``. Code literals take double backticks.
+- **Cross-references are Markdown, not Sphinx roles.** Write
+  `` [`Acquire`][qprogram_qblox.Acquire] `` for a target this site documents, and
+  `` [`Expression`][qprogram.Expression] `` for one the core DSL documents:
+  `zensical.toml` loads that project's published `objects.inv` as an
+  `inventories` entry, so a core type resolves to its page on that site. Plain
+  `` `Expression` `` is for anything neither site renders, such as a builtin or
+  a stdlib name. A Sphinx role such as `` :class:`~qprogram.Expression` ``
+  would reach the page as literal text, since mkdocstrings reads a docstring as
+  Markdown and has no reStructuredText reader;
+  `tests/test_docstring_style.py` fails the suite on one. The docs build runs
+  with `--strict`, so a cross-reference neither site can resolve fails CI as
+  well.
 - **Every file carries the Apache header**, the standard 13-line notice with
   `Copyright 2026 Qilimanjaro Quantum Tech`, before the module docstring and
   in test files too. Ruff's `missing-copyright-notice` rule fails the lint
