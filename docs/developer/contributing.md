@@ -18,25 +18,6 @@ Two things to read first.
    template is easy to review; a change that fights it usually belongs in
    the core instead.
 
-## The core DSL is a sibling checkout
-
-`qprogram` is not on PyPI yet. The published wheel depends on it as a normal
-version constraint, but `[tool.uv.sources]` in `pyproject.toml` points the
-name at `../qprogram`, so local and CI environments resolve it from a
-sibling checkout of <https://github.com/qilimanjaro-tech/qprogram>. Clone
-both repositories into the same parent directory. `uv sync` in a lone clone
-of this repository has nothing to resolve `qprogram` against and fails.
-
-```bash
-git clone https://github.com/qilimanjaro-tech/qprogram
-git clone https://github.com/qilimanjaro-tech/qprogram-qblox
-cd qprogram-qblox
-```
-
-The core is installed as an editable dependency, so a change in
-`../qprogram/src` is visible here without reinstalling. That cuts both ways:
-a test failing here may be a core change, and the fix may belong in the
-other repository.
 
 ## Development workflow
 
@@ -102,9 +83,8 @@ other repository.
    the number exists so the entry carries a link. Internal refactors, test-only
    changes, and docs corrections do not need one.
 
-9. **Open the PR.** The workflows under `.github/workflows/` run on it. All
-    three check out the core DSL as a sibling directory first, the same way
-    you did. `tests.yml` runs the suite on 3.11 and 3.14 for a pull request,
+9. **Open the PR.** The workflows under `.github/workflows/` run on it.
+    `tests.yml` runs the suite on 3.11 and 3.14 for a pull request,
     and on the whole of 3.11 through 3.14 for a push to `main`; the coverage
     upload rides on the 3.13 job, so only a push produces it.
     `code_quality.yml` runs `ruff check` and `ruff format --diff` once on
@@ -227,11 +207,6 @@ retried. A manual run takes three inputs: `platform` chooses between PyPI and
 the `qilimanjaro` AWS CodeArtifact domain, `repository` names the CodeArtifact
 repository, and `dry_run` builds and validates the distributions without
 uploading them.
-
-Publishing does not need the core DSL as a sibling checkout, unlike the other
-three workflows. `uv build` reads `pyproject.toml` and never resolves runtime
-dependencies, so the wheel carries the plain `qprogram>=0.1.0` requirement and
-builds from this repository alone.
 
 ## Commit messages
 
