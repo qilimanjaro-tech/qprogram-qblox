@@ -93,14 +93,9 @@ API reference, lives at <https://qilimanjaro-tech.github.io/qprogram-qblox/>.
 
 ## Development
 
-The project uses [uv](https://docs.astral.sh/uv/). The core DSL is not on PyPI yet, so
-`[tool.uv.sources]` in `pyproject.toml` points `qprogram` at `../qprogram`: it resolves from a
-sibling checkout of <https://github.com/qilimanjaro-tech/qprogram>. Clone both repositories into
-the same parent directory. A clone of this repository alone has nothing to resolve `qprogram`
-against, and `uv sync` fails.
+The project uses [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone https://github.com/qilimanjaro-tech/qprogram
 git clone https://github.com/qilimanjaro-tech/qprogram-qblox
 cd qprogram-qblox
 

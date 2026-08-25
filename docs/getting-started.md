@@ -17,15 +17,9 @@ other runtime dependencies and no extras.
 
 ### Working on this package
 
-The repository uses [uv](https://docs.astral.sh/uv/). The core DSL is not on
-PyPI yet, so `[tool.uv.sources]` points `qprogram` at `../qprogram`: it
-resolves from a sibling checkout of
-<https://github.com/qilimanjaro-tech/qprogram>. Clone both repositories into
-the same parent directory, because a clone of this repository alone leaves
-`uv sync` with nothing to resolve `qprogram` against and the sync fails.
+The repository uses [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone https://github.com/qilimanjaro-tech/qprogram
 git clone https://github.com/qilimanjaro-tech/qprogram-qblox
 cd qprogram-qblox
 
