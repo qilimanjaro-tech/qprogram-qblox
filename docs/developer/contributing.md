@@ -88,14 +88,28 @@ other repository.
    guide, and every new public class or method needs its `mkdocstrings`
    entry in the [API reference](../reference/api.md).
 
-8. **Open the PR.** The workflows under `.github/workflows/` run on it. All
-   three check out the core DSL as a sibling directory first, the same way
-   you did. `tests.yml` runs the suite on 3.11 and 3.14 for a pull request,
-   and on the whole of 3.11 through 3.14 for a push to `main`; the coverage
-   upload rides on the 3.13 job, so only a push produces it.
-   `code_quality.yml` runs `ruff check` and `ruff format --diff` once on
-   3.13, then `ty check` once per supported version. `docs.yml` builds this
-   site.
+8. **Add a changelog entry.** Anything a caller would notice gets one news
+   fragment under `changelog/`, named `<pr-number>.<type>.md`, where the type
+   is `added`, `changed`, `fixed`, or `removed`.
+
+   ```bash
+   uv run towncrier create 123.added.md
+   ```
+
+   Write one or two sentences about what changed for somebody using the
+   package. A fragment written before the pull request has a number takes a `+`
+   prefix and any name, as in `+marker-pulse-width.added.md`; rename it once
+   the number exists so the entry carries a link. Internal refactors, test-only
+   changes, and docs corrections do not need one.
+
+9. **Open the PR.** The workflows under `.github/workflows/` run on it. All
+    three check out the core DSL as a sibling directory first, the same way
+    you did. `tests.yml` runs the suite on 3.11 and 3.14 for a pull request,
+    and on the whole of 3.11 through 3.14 for a push to `main`; the coverage
+    upload rides on the 3.13 job, so only a push produces it.
+    `code_quality.yml` runs `ruff check` and `ruff format --diff` once on
+    3.13, then `ty check` once per supported version. `docs.yml` builds this
+    site.
 
 ## What "small PR" means
 
@@ -170,6 +184,54 @@ These are the rules the project enforces. All of them are configured in
 - **No new runtime dependencies.** This package depends on `qprogram` and
   nothing else, and it should stay that way. Anything a single operation
   needs belongs behind an optional extra, if anywhere.
+
+## Releasing
+
+`CHANGELOG.md` is assembled from the fragments in `changelog/`, so it is written
+once per release rather than edited per PR. A release goes out from its own pull
+request:
+
+1. Branch from an up-to-date `main`.
+2. Set the new version. This writes both `pyproject.toml` and `uv.lock`; nothing
+   else holds the literal, since the version is read from the installed
+   metadata.
+
+   ```bash
+   uv version 0.2.0
+   uv sync
+   ```
+
+3. Assemble the changelog. Pass the version explicitly. Left to guess, towncrier
+   reads the *installed* metadata and can render a stale number into a heading
+   that is never regenerated.
+
+   ```bash
+   uv run towncrier build --draft --version "$(uv version --short)"   # preview
+   uv run towncrier build --version "$(uv version --short)" --yes
+   ```
+
+4. Read the rendered section and edit it. Fragments are written weeks apart by
+   different people and rarely read as one voice when they land together.
+5. Open the release PR, and merge it once CI is green.
+6. Create the GitHub Release on the merge commit, tagged with the version now in
+   `pyproject.toml` and no `v` prefix. Publishing it starts `publish.yml`, which
+   runs `uv build` for the wheel and the sdist, checks both with `twine check`,
+   and uploads them through trusted publishing. Pre-releases publish too.
+7. Approve the deployment. The run waits on the `pypi` environment until a
+   reviewer releases it. PyPI never lets a file be replaced, so this approval is
+   the last point at which a wrong version can be stopped.
+
+`publish.yml` can also be started by hand from the Actions tab, which is how the
+first release goes out and how a run that failed on a transient error is
+retried. A manual run takes three inputs: `platform` chooses between PyPI and
+the `qilimanjaro` AWS CodeArtifact domain, `repository` names the CodeArtifact
+repository, and `dry_run` builds and validates the distributions without
+uploading them.
+
+Publishing does not need the core DSL as a sibling checkout, unlike the other
+three workflows. `uv build` reads `pyproject.toml` and never resolves runtime
+dependencies, so the wheel carries the plain `qprogram>=0.1.0` requirement and
+builds from this repository alone.
 
 ## Commit messages
 
