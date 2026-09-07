@@ -23,6 +23,7 @@ from __future__ import annotations
 import math
 
 import pytest
+from _header import HEADER, VENDOR_MAJOR
 from qprogram import ParseError, dumps, loads
 from qprogram.sweeps import Range
 from qprogram.waveforms import IQDrag, IQPair, Square
@@ -259,14 +260,14 @@ def test_loads_with_matching_qblox_require_ok():
 
 def test_loads_with_future_minor_rejected():
     """A file asking for a minor the installed extension does not have cannot be parsed."""
-    text = '#!QProgram 1.0\nrequire qblox 0.99\nbody:\n  qblox.set_markers "drive" "0001"\n'
+    text = f'{HEADER}\nrequire qblox {VENDOR_MAJOR}.99\nbody:\n  qblox.set_markers "drive" "0001"\n'
     with pytest.raises(ParseError, match="minor version too old"):
         loads(text)
 
 
 def test_loads_with_wrong_major_rejected():
     """Majors must match exactly: the wire form of an operation may change between them."""
-    text = '#!QProgram 1.0\nrequire qblox 999.0\nbody:\n  qblox.set_markers "drive" "0001"\n'
+    text = f'{HEADER}\nrequire qblox 999.0\nbody:\n  qblox.set_markers "drive" "0001"\n'
     with pytest.raises(ParseError, match="major versions must match"):
         loads(text)
 

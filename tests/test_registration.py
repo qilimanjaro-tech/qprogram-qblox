@@ -26,6 +26,7 @@ import importlib.metadata as md
 import subprocess
 import sys
 
+from _header import HEADER, REQUIRE
 from qprogram import QProgram as BaseQProgram
 from qprogram.serialization.registry import (
     get_operation_spec,
@@ -108,7 +109,7 @@ def test_qblox_autoactivates_in_fresh_process(tmp_path):
     ``import qprogram_qblox`` anywhere.
     """
     qp_file = tmp_path / "prog.qp"
-    qp_file.write_text('#!QProgram 1.0\n\nrequire qblox 0.1\n\nbody:\n  qblox.set_markers "d" "0001"\n')
+    qp_file.write_text(f'{HEADER}\n\n{REQUIRE}\n\nbody:\n  qblox.set_markers "d" "0001"\n')
     script = tmp_path / "run.py"
     script.write_text(
         "import sys, qprogram as qp\n"
