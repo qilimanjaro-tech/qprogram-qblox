@@ -59,8 +59,9 @@ Importing `qprogram_qblox` is the activation step, and it is the only one.
 2. **Protocol version.** `register_vendor_version("qblox", __version__)`
    records the version, which `__init__.py` reads from the installed
    distribution metadata. This is the number the parser checks a file's
-   `require qblox 0.1` line against: same major, file minor not ahead of
-   installed minor.
+   `require qblox 0.1` line against: the line may ask for this version or any
+   earlier one, and an earlier one whose spelling has since changed is repaired
+   by the rewrites `register_vendor_migration` records.
 3. **Operations.** One `register_vendor_operation("qblox", name, cls)` call
    per class. `acquire` additionally passes the core measurement callbacks,
    so its handle serializes as a `name="..."` keyword like every other
@@ -715,3 +716,26 @@ Then the docs: the operation belongs in
 [Operations](../guide/operations.md), and the class in the
 [API reference](../reference/api.md). The full checklist is on the
 [contributing](contributing.md) page.
+
+### Changing one that already exists
+
+Adding an operation needs none of this, since a file written before it never
+mentions it. Changing the wire form of one that ships — renaming it, renaming or
+reordering a constructor parameter, giving an argument a new meaning — breaks
+every file that already uses it, so the release that does it registers a rewrite
+beside the other registration calls:
+
+```python
+_SET_MARKERS = re.compile(r'^(\s*qblox\.set_markers\s+"[^"]+")\s+"(\d+)"$')
+
+
+@register_vendor_migration("qblox", "0.4")
+def _markers_became_a_mask(lines: list[str]) -> list[str]:
+    return [_SET_MARKERS.sub(r"\g<1> mask=0b\g<2>", line) for line in lines]
+```
+
+Key it to the version that ships the change, one rewrite per change. It is
+handed every line of the file and has to return as many, so a diagnostic's line
+number still points at the line the author wrote; the core refuses a rewrite
+that adds or drops one. `tests/test_serialization.py` is where it earns its
+test: a file in the old spelling, loaded, and its nodes checked.

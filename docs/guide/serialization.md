@@ -74,27 +74,27 @@ truncates it. An installed `0.1.0` therefore writes `require qblox 0.1`, and
 `0.1.0`.
 
 On load, the parser resolves each `require` line against the installed
-extension:
+extension, and one rule decides it: the installed package must be able to
+provide what the line asks for. The line carries `major.minor` and nothing
+else, since a patch release of this package changes code and never the wire
+form.
 
-- The **major** version must match exactly.
-- The installed **minor** must be greater than or equal to the file's minor.
-
-Both checks run before the body is read, so an incompatible file never
+The check runs before the body is read, so an incompatible file never
 half-loads. With `0.1.0` installed:
 
 ```python
 qp.loads(text)  # the file says: require qblox 1.0
-# ParseError: Line 3: file requires qblox 1.0 (major 1); installed qblox is 0.1.0
-#             (major 0) — major versions must match
+# ParseError: Line 3: file requires qblox 1.0, newer than the installed qblox
+#             0.1.0 — install qblox 1.0 or newer
 
-qp.loads(text)  # the file says: require qblox 0.9
-# ParseError: Line 3: file requires qblox 0.9 or compatible; installed qblox is
-#             0.1.0 — minor version too old
+qp.loads(text)  # the file says: require qblox 0.1.0
+# ParseError: Line 3: file version '0.1.0' must be exactly major.minor
 ```
 
-An older minor is fine in the other direction: `require qblox 0.1` loads
-against an installed `0.4.2`, because everything `0.1` can spell is still
-there.
+An older line is fine in the other direction: `require qblox 0.1` loads against
+an installed `0.4.2`, because everything `0.1` can spell is still there — and
+where a release did change a spelling, the migration it registered rewrites the
+body first, so even an earlier major loads.
 
 ## Auto-activation
 
