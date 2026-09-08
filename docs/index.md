@@ -103,6 +103,7 @@ also carry operations from other vendor packages.
 
 The package is pre-1.0 and tracks the core DSL, so the Python API is allowed
 to move. The wire format is steadier: a `.qp` file that requires `qblox 0.1`
-loads against any installed version that shares its major number and is no
-older in minor, and anything else is a `ParseError` rather than a silent
-partial load.
+loads against any installed version from `0.1` up, because a release that
+changes an operation's wire form registers a rewrite that repairs the older
+spelling on the way in. A file asking for more than the installed package
+provides is a `ParseError` rather than a silent partial load.

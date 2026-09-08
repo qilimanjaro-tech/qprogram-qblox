@@ -21,9 +21,10 @@ check the installed extension before it reads the body.
 from __future__ import annotations
 
 import math
+import re
 
 import pytest
-from _header import HEADER, VENDOR_MAJOR
+from _header import HEADER, VENDOR_MAJOR, VENDOR_VERSION, needs_core_migrations
 from qprogram import ParseError, dumps, loads
 from qprogram.sweeps import Range
 from qprogram.waveforms import IQDrag, IQPair, Square
@@ -258,17 +259,19 @@ def test_loads_with_matching_qblox_require_ok():
     assert isinstance(reloaded.body.elements[0], SetMarkers)
 
 
-def test_loads_with_future_minor_rejected():
-    """A file asking for a minor the installed extension does not have cannot be parsed."""
-    text = f'{HEADER}\nrequire qblox {VENDOR_MAJOR}.99\nbody:\n  qblox.set_markers "drive" "0001"\n'
-    with pytest.raises(ParseError, match="minor version too old"):
+@pytest.mark.parametrize("required", [f"{VENDOR_MAJOR}.99", "999.0"])
+def test_loads_asking_for_more_than_is_installed_rejected(required):
+    """Whichever component is ahead, this package cannot build what the file names."""
+    text = f'{HEADER}\nrequire qblox {required}\nbody:\n  qblox.set_markers "drive" "0001"\n'
+    with pytest.raises(ParseError, match=rf"file requires qblox {re.escape(required)}"):
         loads(text)
 
 
-def test_loads_with_wrong_major_rejected():
-    """Majors must match exactly: the wire form of an operation may change between them."""
-    text = f'{HEADER}\nrequire qblox 999.0\nbody:\n  qblox.set_markers "drive" "0001"\n'
-    with pytest.raises(ParseError, match="major versions must match"):
+@needs_core_migrations
+def test_loads_with_a_patch_in_the_require_line_rejected():
+    """A `require` line names a wire form, and a patch release of this package has none of its own."""
+    text = f'{HEADER}\nrequire qblox {VENDOR_VERSION}.0\nbody:\n  qblox.set_markers "drive" "0001"\n'
+    with pytest.raises(ParseError, match=r"must be exactly major\.minor"):
         loads(text)
 
 

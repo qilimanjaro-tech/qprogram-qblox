@@ -59,8 +59,9 @@ Importing `qprogram_qblox` is the activation step, and it is the only one.
 2. **Protocol version.** `register_vendor_version("qblox", __version__)`
    records the version, which `__init__.py` reads from the installed
    distribution metadata. This is the number the parser checks a file's
-   `require qblox 0.1` line against: same major, file minor not ahead of
-   installed minor.
+   `require qblox 0.1` line against: the line may ask for this version or any
+   earlier one, and an earlier one whose spelling has since changed is repaired
+   by the rewrites `register_vendor_migration` records.
 3. **Operations.** One `register_vendor_operation("qblox", name, cls)` call
    per class. `acquire` additionally passes the core measurement callbacks,
    so its handle serializes as a `name="..."` keyword like every other
@@ -715,3 +716,79 @@ Then the docs: the operation belongs in
 [Operations](../guide/operations.md), and the class in the
 [API reference](../reference/api.md). The full checklist is on the
 [contributing](contributing.md) page.
+
+### Changing one that already exists
+
+Adding an operation needs none of this, since a file written before it never
+mentions it. Changing the wire form of one that ships, by renaming it, renaming
+or reordering a constructor parameter, or giving an argument a new meaning,
+breaks every file that already uses it. That is a major bump of the vendor
+protocol, and the release that does it registers a rewrite so that the files
+users already have go on loading.
+
+Say 1.0 renames `set_markers` to `set_marker_mask`. A file written against 0.3
+carries the old keyword, which the parser would otherwise refuse as an unknown
+vendor operation:
+
+<!-- check: skip -->
+```
+#!QProgram 1.0
+
+require qblox 0.3
+
+body:
+  qblox.set_markers "drive_q0" "0001"
+```
+
+The rewrite goes in `__init__.py` beside the `register_vendor_operation` calls,
+so that the import a `require qblox` line triggers is what registers it:
+
+```python
+# src/qprogram_qblox/__init__.py
+import re
+
+from qprogram.serialization.migrations import register_vendor_migration
+
+_SET_MARKERS = re.compile(r"(?<=\bqblox\.)set_markers\b")
+
+
+@register_vendor_migration("qblox", "1.0")
+def _set_markers_became_set_marker_mask(lines: list[str]) -> list[str]:
+    """Rewrite the operation keyword 1.0 renamed."""
+    return [_SET_MARKERS.sub("set_marker_mask", line) for line in lines]
+```
+
+Four rules govern the rewrite:
+
+- **The version is this package's, not the format's.** The chain is bounded by
+  the installed extension, so `require qblox 0.3` read against an installed
+  1.0.1 runs every rewrite keyed above 0.3 and no higher than 1.0. A file
+  already at 1.0 runs none of them.
+- **One rewrite per breaking change, keyed to the release that ships it.** A
+  release that only adds operations registers nothing. One keyed to a version
+  that has not shipped yet never runs, so it can land in the same pull request
+  as the change it repairs.
+- **The pattern has to be narrow.** A migration is text in and text out with no
+  parse in between. The lookbehind is what keeps the rename off a bus called
+  `"set_markers"` and off a label that happens to mention the operation.
+- **Lines in, as many lines out.** The rewrite is handed every line of the
+  file, header and `require` lines included, and the core refuses one that
+  hands back a different number, since a diagnostic's line number has to go on
+  pointing at the line the author wrote.
+
+`tests/test_serialization.py` is where it earns its test, and that test is a
+load rather than a call to the function, since the registration and the version
+check are half of what is being proved:
+
+```python
+def test_a_0_3_file_still_loads_after_the_rename():
+    text = '#!QProgram 1.0\n\nrequire qblox 0.3\n\nbody:\n  qblox.set_markers "drive_q0" "0001"\n'
+    assert isinstance(qp.loads(text).body.elements[0], SetMarkerMask)
+```
+
+A vendor rewrite only ever sees `.qp` lines. A `.wfl` waveform library carries
+no `require` line and so claims no vendor version, which leaves its own
+versioning to the core.
+
+The core DSL documents the mechanism these calls reach into, in
+[serialization internals](https://qilimanjaro-tech.github.io/qprogram/developer/serialization-internals.html#vendor-migrations).
