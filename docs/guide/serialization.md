@@ -93,8 +93,9 @@ qp.loads(text)  # the file says: require qblox 0.1.0
 
 An older line is fine in the other direction: `require qblox 0.1` loads against
 an installed `0.4.2`, because everything `0.1` can spell is still there — and
-where a release did change a spelling, the migration it registered rewrites the
-body first, so even an earlier major loads.
+where a release did change a spelling, the
+[migration](../developer/lowering.md#changing-one-that-already-exists) it
+registered rewrites the body first, so even an earlier major loads.
 
 ## Auto-activation
 

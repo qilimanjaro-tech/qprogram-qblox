@@ -720,22 +720,75 @@ Then the docs: the operation belongs in
 ### Changing one that already exists
 
 Adding an operation needs none of this, since a file written before it never
-mentions it. Changing the wire form of one that ships — renaming it, renaming or
-reordering a constructor parameter, giving an argument a new meaning — breaks
-every file that already uses it, so the release that does it registers a rewrite
-beside the other registration calls:
+mentions it. Changing the wire form of one that ships, by renaming it, renaming
+or reordering a constructor parameter, or giving an argument a new meaning,
+breaks every file that already uses it. That is a major bump of the vendor
+protocol, and the release that does it registers a rewrite so that the files
+users already have go on loading.
 
-```python
-_SET_MARKERS = re.compile(r'^(\s*qblox\.set_markers\s+"[^"]+")\s+"(\d+)"$')
+Say 1.0 renames `set_markers` to `set_marker_mask`. A file written against 0.3
+carries the old keyword, which the parser would otherwise refuse as an unknown
+vendor operation:
 
+<!-- check: skip -->
+```
+#!QProgram 1.0
 
-@register_vendor_migration("qblox", "0.4")
-def _markers_became_a_mask(lines: list[str]) -> list[str]:
-    return [_SET_MARKERS.sub(r"\g<1> mask=0b\g<2>", line) for line in lines]
+require qblox 0.3
+
+body:
+  qblox.set_markers "drive_q0" "0001"
 ```
 
-Key it to the version that ships the change, one rewrite per change. It is
-handed every line of the file and has to return as many, so a diagnostic's line
-number still points at the line the author wrote; the core refuses a rewrite
-that adds or drops one. `tests/test_serialization.py` is where it earns its
-test: a file in the old spelling, loaded, and its nodes checked.
+The rewrite goes in `__init__.py` beside the `register_vendor_operation` calls,
+so that the import a `require qblox` line triggers is what registers it:
+
+```python
+# src/qprogram_qblox/__init__.py
+import re
+
+from qprogram.serialization.migrations import register_vendor_migration
+
+_SET_MARKERS = re.compile(r"(?<=\bqblox\.)set_markers\b")
+
+
+@register_vendor_migration("qblox", "1.0")
+def _set_markers_became_set_marker_mask(lines: list[str]) -> list[str]:
+    """Rewrite the operation keyword 1.0 renamed."""
+    return [_SET_MARKERS.sub("set_marker_mask", line) for line in lines]
+```
+
+Four rules govern the rewrite:
+
+- **The version is this package's, not the format's.** The chain is bounded by
+  the installed extension, so `require qblox 0.3` read against an installed
+  1.0.1 runs every rewrite keyed above 0.3 and no higher than 1.0. A file
+  already at 1.0 runs none of them.
+- **One rewrite per breaking change, keyed to the release that ships it.** A
+  release that only adds operations registers nothing. One keyed to a version
+  that has not shipped yet never runs, so it can land in the same pull request
+  as the change it repairs.
+- **The pattern has to be narrow.** A migration is text in and text out with no
+  parse in between. The lookbehind is what keeps the rename off a bus called
+  `"set_markers"` and off a label that happens to mention the operation.
+- **Lines in, as many lines out.** The rewrite is handed every line of the
+  file, header and `require` lines included, and the core refuses one that
+  hands back a different number, since a diagnostic's line number has to go on
+  pointing at the line the author wrote.
+
+`tests/test_serialization.py` is where it earns its test, and that test is a
+load rather than a call to the function, since the registration and the version
+check are half of what is being proved:
+
+```python
+def test_a_0_3_file_still_loads_after_the_rename():
+    text = '#!QProgram 1.0\n\nrequire qblox 0.3\n\nbody:\n  qblox.set_markers "drive_q0" "0001"\n'
+    assert isinstance(qp.loads(text).body.elements[0], SetMarkerMask)
+```
+
+A vendor rewrite only ever sees `.qp` lines. A `.wfl` waveform library carries
+no `require` line and so claims no vendor version, which leaves its own
+versioning to the core.
+
+The core DSL documents the mechanism these calls reach into, in
+[serialization internals](https://qilimanjaro-tech.github.io/qprogram/developer/serialization-internals.html#vendor-migrations).
