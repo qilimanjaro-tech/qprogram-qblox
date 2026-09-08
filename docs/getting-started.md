@@ -107,7 +107,7 @@ a `require` line per vendor, and the parser checks each one against the
 installed extension:
 
 ```
-#!QProgram 1.0
+#!QProgram 0.2
 
 require qblox 0.1
 require qdac 0.1

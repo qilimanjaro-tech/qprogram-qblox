@@ -672,7 +672,7 @@ and writes without a line of format code:
 ```python
 import qprogram as qp
 
-text = """#!QProgram 1.0
+text = """#!QProgram 0.2
 
 require qblox 0.1
 
@@ -732,7 +732,7 @@ vendor operation:
 
 <!-- check: skip -->
 ```
-#!QProgram 1.0
+#!QProgram 0.2
 
 require qblox 0.3
 
@@ -782,7 +782,7 @@ check are half of what is being proved:
 
 ```python
 def test_a_0_3_file_still_loads_after_the_rename():
-    text = '#!QProgram 1.0\n\nrequire qblox 0.3\n\nbody:\n  qblox.set_markers "drive_q0" "0001"\n'
+    text = '#!QProgram 0.2\n\nrequire qblox 0.3\n\nbody:\n  qblox.set_markers "drive_q0" "0001"\n'
     assert isinstance(qp.loads(text).body.elements[0], SetMarkerMask)
 ```
 
