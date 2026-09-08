@@ -1,10 +1,6 @@
 # Getting started
 
-This page walks you from an empty environment to a Qblox program you can
-run. It assumes Python 3.11 or newer, and that you have met the core DSL
-before. If not, read the
-[QProgram getting started](https://qilimanjaro-tech.github.io/qprogram/getting-started.html)
-page first: everything here is the core language plus one namespace.
+This page walks you from an empty environment to a Qblox program you can run. It assumes Python 3.11 or newer, and that you have met the core DSL before. If not, read the [QProgram getting started](https://qilimanjaro-tech.github.io/qprogram/getting-started.html) page first: everything here is the core language plus one namespace.
 
 ## Install
 
@@ -12,8 +8,7 @@ page first: everything here is the core language plus one namespace.
 pip install qprogram-qblox
 ```
 
-That pulls in `qprogram`, and through it `numpy` and `xarray`. There are no
-other runtime dependencies and no extras.
+That pulls in `qprogram`, and through it `numpy` and `xarray`. There are no other runtime dependencies and no extras.
 
 ### Working on this package
 
@@ -35,10 +30,7 @@ uv run --group docs zensical serve
 
 ## Importing is the activation step
 
-The package registers everything it adds as an import side effect: the
-`qblox` namespace on `QProgram`, the vendor protocol version the `.qp`
-parser checks, one serializer entry per operation, and the `qblox-default-v1`
-capability profile. There is no setup call.
+The package registers everything it adds as an import side effect: the `qblox` namespace on `QProgram`, the vendor protocol version the `.qp` parser checks, one serializer entry per operation, and the `qblox-default-v1` capability profile. There is no setup call.
 
 ```python
 import qprogram as qp
@@ -51,14 +43,11 @@ program.qblox.set_markers("drive_q0", "0001")
 print(qp.dumps(program))
 ```
 
-Note the plain `qprogram.QProgram`. Registration is on the base class, so
-`.qblox` resolves on any program instance. The namespace object is built on
-first access and cached on the instance.
+Note the plain `qprogram.QProgram`. Registration is on the base class, so `.qblox` resolves on any program instance. The namespace object is built on first access and cached on the instance.
 
 ## The typed QProgram
 
-Editors cannot complete an attribute that is resolved dynamically, so the
-package also exports a `QProgram` with `.qblox` declared as a property:
+Editors cannot complete an attribute that is resolved dynamically, so the package also exports a `QProgram` with `.qblox` declared as a property:
 
 ```python
 import qprogram as qp
@@ -72,15 +61,11 @@ print(m0.name)  # m0, the auto-allocated measurement name
 print(qp.dumps(program))
 ```
 
-Either spelling builds the same AST and writes the same file, because
-`.qblox` reaches the same namespace class both ways. What the typed one adds
-is argument help and return types while you write the program.
+Either spelling builds the same AST and writes the same file, because `.qblox` reaches the same namespace class both ways. What the typed one adds is argument help and return types while you write the program.
 
 ## One program, several vendors
 
-`QbloxMixin` is the property on its own. A platform that drives more than
-one instrument family lists every vendor mixin in the bases of its own
-program class:
+`QbloxMixin` is the property on its own. A platform that drives more than one instrument family lists every vendor mixin in the bases of its own program class:
 
 ```python
 import qprogram as qp
@@ -102,15 +87,13 @@ program.qblox.acquire("readout_q0", "weights")
 print(qp.dumps(program))
 ```
 
-This one needs `qprogram-qdac` installed as well. The resulting file carries
-a `require` line per vendor, and the parser checks each one against the
-installed extension:
+This one needs `qprogram-qdac` installed as well. The resulting file carries a `require` line per vendor, and the parser checks each one against the installed extension:
 
 ```
-#!QProgram 1.0
+#!QProgram 0.2
 
-require qblox 0.1
-require qdac 0.1
+require qblox 0.2
+require qdac 0.2
 
 metadata:
   label: "two_vendors"
@@ -123,9 +106,7 @@ body:
 
 ## A first experiment
 
-Save this as `rotation.py` and run it with `python rotation.py`. It builds
-an acquisition-rotation calibration, checks it against a Qblox capability
-set, writes it to a scratch directory, and runs it on the reference executor.
+Save this as `rotation.py` and run it with `python rotation.py`. It builds an acquisition-rotation calibration, checks it against a Qblox capability set, writes it to a scratch directory, and runs it on the reference executor.
 
 ```python
 import math
@@ -183,8 +164,7 @@ population = result.get(m0, field=qp.MeasurementField.STATE)
 print(population.dims, population.shape)  # ('angle',) (21,)
 ```
 
-`qp.explain` prints the plan as a tree, one line per node, with the domains
-each node can run in:
+`qp.explain` prints the plan as a tree, one line per node, with the domains each node can run in:
 
 ```
 plan for 'rotation_calibration' — errors: 0 · warnings: 0 · info: 0
@@ -199,9 +179,7 @@ body
 
 ## Load a file without importing anything
 
-A `.qp` file names the extensions it needs, and the parser can fetch them.
-Reading back the file the script above wrote works in a fresh interpreter
-that has never heard of this package:
+A `.qp` file names the extensions it needs, and the parser can fetch them. Reading back the file the script above wrote works in a fresh interpreter that has never heard of this package:
 
 ```python
 import sys
@@ -215,18 +193,11 @@ print("qprogram_qblox" in sys.modules)  # True, the parser imported it on demand
 print(qp.dumps(reloaded) == Path(".tmp/rotation.qp").read_text())  # True, the file round-trips
 ```
 
-The `require qblox 0.1` line sends the parser to the `qprogram.vendors`
-entry point group, where it finds this package and imports it. Pass
-`auto_activate=False` to `qp.load` or `qp.loads` to turn that off and get a
-`ParseError` for an unregistered vendor instead.
+The `require qblox 0.2` line sends the parser to the `qprogram.vendors` entry point group, where it finds this package and imports it. Pass `auto_activate=False` to `qp.load` or `qp.loads` to turn that off and get a `ParseError` for an unregistered vendor instead.
 
 ## Where to next?
 
-- [Operations](guide/operations.md) covers all six operations, their
-  arguments, and their units.
-- [Capabilities and profiles](guide/capabilities.md) explains
-  `QBLOX_DEFAULT_V1`, its limits, and the two constraints it declares.
-- [Saving and loading](guide/serialization.md) covers the wire form and
-  version checking.
-- [Lowering onto hardware](developer/lowering.md) is for platform authors
-  turning these nodes into sequencer code.
+- [Operations](guide/operations.md) covers all six operations, their arguments, and their units.
+- [Capabilities and profiles](guide/capabilities.md) explains `QBLOX_DEFAULT_V1`, its limits, and the two constraints it declares.
+- [Saving and loading](guide/serialization.md) covers the wire form and version checking.
+- [Lowering onto hardware](developer/lowering.md) is for platform authors turning these nodes into sequencer code.

@@ -1,19 +1,12 @@
 # QProgram Qblox
 
-Qblox extensions for
-[QProgram](https://qilimanjaro-tech.github.io/qprogram/), a Python DSL for
-pulse-level quantum experiments.
+Qblox extensions for [QProgram](https://qilimanjaro-tech.github.io/qprogram/), a Python DSL for pulse-level quantum experiments.
 
-The core DSL describes what is portable across instruments. This package
-describes what a Qblox cluster adds on top: acquisitions without a readout
-pulse, marker and trigger lines, and thresholded-acquisition setup on the
-QCM and QRM sequencers. Importing the package registers all of it. Nothing
-in the core changes.
+The core DSL describes what is portable across instruments. This package describes what a Qblox cluster adds on top: acquisitions without a readout pulse, marker and trigger lines, and thresholded-acquisition setup on the QCM and QRM sequencers. Importing the package registers all of it. Nothing in the core changes.
 
 ## What the qblox namespace gives you
 
-Every operation is reached as `program.qblox.<name>(...)` and writes one
-`qblox.<name>` line into a `.qp` file.
+Every operation is reached as `program.qblox.<name>(...)` and writes one `qblox.<name>` line into a `.qp` file.
 
 | Operation                     | What it does                                                                                   |
 |-------------------------------|------------------------------------------------------------------------------------------------|
@@ -24,13 +17,9 @@ Every operation is reached as `program.qblox.<name>(...)` and writes one
 | `set_acquisition_threshold`   | Set the state-discrimination threshold of a readout bus.                                        |
 | `set_acquisition_rotation`    | Rotate the integrated IQ point before it meets the threshold. Radians, as everywhere in the DSL. |
 
-The last two take effect off the sequencer, as slow-control parameter writes
-at execution time. Both accept an `Expression`, so a loop can sweep them the
-way a discrimination is normally calibrated.
+The last two take effect off the sequencer, as slow-control parameter writes at execution time. Both accept an `Expression`, so a loop can sweep them the way a discrimination is normally calibrated.
 
-Alongside the operations, the package ships `QBLOX_DEFAULT_V1`, the
-capability profile that says what a qblox-driven bus accepts, and
-`QbloxMixin`, the typed property that gives editors something to complete.
+Alongside the operations, the package ships `QBLOX_DEFAULT_V1`, the capability profile that says what a qblox-driven bus accepts, and `QbloxMixin`, the typed property that gives editors something to complete.
 
 ## A first program
 
@@ -69,10 +58,7 @@ population = result.get(m0, field=qp.MeasurementField.STATE)
 print(population.dims, population.shape)  # ('angle',) (21,)
 ```
 
-`qp.simulate` is the reference software executor from the core package. It
-runs qblox operations generically: `qblox.acquire` produces measurement
-records, the rest leave the simulated outcome alone. A Qblox platform is a
-drop-in for the same call and lowers each operation onto real sequencers.
+`qp.simulate` is the reference software executor from the core package. It runs qblox operations generically: `qblox.acquire` produces measurement records, the rest leave the simulated outcome alone. A Qblox platform is a drop-in for the same call and lowers each operation onto real sequencers.
 
 ## Where to go next
 
@@ -88,22 +74,10 @@ drop-in for the same call and lowers each operation onto real sequencers.
 
 ## How it plugs in
 
-The core package defines three hooks and this one uses all three at import
-time: a runtime namespace registered with `QProgram.register_vendor`, a
-typed mixin for editors, and the serialization registry that maps each
-operation class to its `.qp` spelling. A fourth line, the `qprogram.vendors`
-entry point in `pyproject.toml`, lets `qprogram.load` import this package on
-demand when a file's header carries `require qblox 0.1`.
+The core package defines three hooks and this one uses all three at import time: a runtime namespace registered with `QProgram.register_vendor`, a typed mixin for editors, and the serialization registry that maps each operation class to its `.qp` spelling. A fourth line, the `qprogram.vendors` entry point in `pyproject.toml`, lets `qprogram.load` import this package on demand when a file's header carries `require qblox 0.2`.
 
-Because all four are declarations rather than patches, the same program can
-also carry operations from other vendor packages.
-[Getting started](getting-started.md) shows how to combine them.
+Because all four are declarations rather than patches, the same program can also carry operations from other vendor packages. [Getting started](getting-started.md) shows how to combine them.
 
 ## Status
 
-The package is pre-1.0 and tracks the core DSL, so the Python API is allowed
-to move. The wire format is steadier: a `.qp` file that requires `qblox 0.1`
-loads against any installed version from `0.1` up, because a release that
-changes an operation's wire form registers a rewrite that repairs the older
-spelling on the way in. A file asking for more than the installed package
-provides is a `ParseError` rather than a silent partial load.
+The package is pre-1.0 and tracks the core DSL, so the Python API is allowed to move. The wire format is steadier: a `.qp` file that requires `qblox 0.1` loads against any installed version from `0.1` up, because a release that changes an operation's wire form registers a rewrite that repairs the older spelling on the way in. A file asking for more than the installed package provides is a `ParseError` rather than a silent partial load.

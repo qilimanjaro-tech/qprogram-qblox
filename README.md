@@ -1,17 +1,10 @@
 # QProgram Qblox
 
-[![Tests](https://github.com/qilimanjaro-tech/qprogram-qblox/actions/workflows/tests.yml/badge.svg)](https://github.com/qilimanjaro-tech/qprogram-qblox/actions/workflows/tests.yml)
-[![Code Quality](https://github.com/qilimanjaro-tech/qprogram-qblox/actions/workflows/code_quality.yml/badge.svg)](https://github.com/qilimanjaro-tech/qprogram-qblox/actions/workflows/code_quality.yml)
-[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)](https://www.python.org/)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![Tests](https://github.com/qilimanjaro-tech/qprogram-qblox/actions/workflows/tests.yml/badge.svg)](https://github.com/qilimanjaro-tech/qprogram-qblox/actions/workflows/tests.yml) [![Code Quality](https://github.com/qilimanjaro-tech/qprogram-qblox/actions/workflows/code_quality.yml/badge.svg)](https://github.com/qilimanjaro-tech/qprogram-qblox/actions/workflows/code_quality.yml) [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)](https://www.python.org/) [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
-Qblox extensions for [QProgram](https://github.com/qilimanjaro-tech/qprogram), a Python DSL for
-pulse-level quantum experiments.
+Qblox extensions for [QProgram](https://github.com/qilimanjaro-tech/qprogram), a Python DSL for pulse-level quantum experiments.
 
-The core DSL knows nothing about any instrument. This package teaches it about the Qblox cluster.
-It adds six operations that the portable language does not cover, a capability profile that says
-what QCM and QRM sequencers accept, and `.qp` serialization for everything it adds. Importing the
-package is the whole activation step.
+The core DSL knows nothing about any instrument. This package teaches it about the Qblox cluster. It adds six operations that the portable language does not cover, a capability profile that says what QCM and QRM sequencers accept, and `.qp` serialization for everything it adds. Importing the package is the whole activation step.
 
 ## Installation
 
@@ -23,8 +16,7 @@ The core `qprogram` package installs with it.
 
 ## A first program
 
-Calibrate the acquisition rotation angle of a readout bus: sweep the angle, discriminate the
-qubit state at each point, and average the outcome.
+Calibrate the acquisition rotation angle of a readout bus: sweep the angle, discriminate the qubit state at each point, and average the outcome.
 
 ```python
 import math
@@ -61,35 +53,19 @@ population = result.get(m0, field=qp.MeasurementField.STATE)
 print(population.dims, population.shape)  # ('angle',) (21,)
 ```
 
-`qp.simulate` is the reference software executor that ships with the core package. It runs the
-qblox operations generically: `qblox.acquire` produces measurement records, the rest have no
-effect on the simulated outcome. A Qblox platform is a drop-in for the same call and lowers each
-operation onto real sequencers.
+`qp.simulate` is the reference software executor that ships with the core package. It runs the qblox operations generically: `qblox.acquire` produces measurement records, the rest have no effect on the simulated outcome. A Qblox platform is a drop-in for the same call and lowers each operation onto real sequencers.
 
 ## What you get
 
-- **Six operations under `program.qblox`.** `acquire` reads a bus without playing a readout
-  pulse. `set_markers` and `set_trigger` drive the digital outputs, `wait_trigger` waits on a
-  digital input. `set_acquisition_threshold` and `set_acquisition_rotation` configure
-  thresholded acquisition, and take effect off the sequencer as slow-control parameter writes
-  at execution time.
-- **Typed or dynamic access.** `qprogram_qblox.QProgram` has `.qblox` typed for autocomplete,
-  `QbloxMixin` composes with other vendor mixins, and the plain `qprogram.QProgram` gets the
-  same namespace at runtime once this package is imported.
-- **A capability profile.** `QBLOX_DEFAULT_V1` declares the operations, waveforms, measurement
-  fields, and limits of a qblox-driven bus, plus the two constraints the hardware imposes: an
-  arbitrary-valued sweep cannot drive a wait duration, and sweeping an `IQDrag` sigma forces its
-  loop to iterate host-side.
-- **Round-tripping `.qp` files.** Every operation serializes as `qblox.<name> <args>` and reloads
-  to a structurally equal program. Files carry `require qblox 0.1`, which the parser checks
-  against the installed version.
-- **Auto-activation on load.** `qprogram.load("file.qp")` imports this package on demand when the
-  file requires the `qblox` vendor, so a reader never has to know which extensions a file uses.
+- **Six operations under `program.qblox`.** `acquire` reads a bus without playing a readout pulse. `set_markers` and `set_trigger` drive the digital outputs, `wait_trigger` waits on a digital input. `set_acquisition_threshold` and `set_acquisition_rotation` configure thresholded acquisition, and take effect off the sequencer as slow-control parameter writes at execution time.
+- **Typed or dynamic access.** `qprogram_qblox.QProgram` has `.qblox` typed for autocomplete, `QbloxMixin` composes with other vendor mixins, and the plain `qprogram.QProgram` gets the same namespace at runtime once this package is imported.
+- **A capability profile.** `QBLOX_DEFAULT_V1` declares the operations, waveforms, measurement fields, and limits of a qblox-driven bus, plus the two constraints the hardware imposes: an arbitrary-valued sweep cannot drive a wait duration, and sweeping an `IQDrag` sigma forces its loop to iterate host-side.
+- **Round-tripping `.qp` files.** Every operation serializes as `qblox.<name> <args>` and reloads to a structurally equal program. Files carry `require qblox 0.2`, which the parser checks against the installed version.
+- **Auto-activation on load.** `qprogram.load("file.qp")` imports this package on demand when the file requires the `qblox` vendor, so a reader never has to know which extensions a file uses.
 
 ## Documentation
 
-Full documentation, including the operation reference, the capability profile, and the generated
-API reference, lives at <https://qilimanjaro-tech.github.io/qprogram-qblox/>.
+Full documentation, including the operation reference, the capability profile, and the generated API reference, lives at <https://qilimanjaro-tech.github.io/qprogram-qblox/>.
 
 ## Development
 

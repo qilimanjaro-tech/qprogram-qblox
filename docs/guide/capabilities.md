@@ -1,10 +1,6 @@
 # Capabilities and profiles
 
-This package ships one capability profile: `qblox-default-v1`, exported as
-`qprogram_qblox.QBLOX_DEFAULT_V1`. It is a **bus-level** profile. It describes
-what a single qblox-driven bus can do, and a platform wires it into the bus
-slots of a `PlatformCapabilities` while the core `qprogram-base-v1` fills the
-platform slot.
+This package ships one capability profile: `qblox-default-v1`, exported as `qprogram_qblox.QBLOX_DEFAULT_V1`. It is a **bus-level** profile. It describes what a single qblox-driven bus can do, and a platform wires it into the bus slots of a `PlatformCapabilities` while the core `qprogram-base-v1` fills the platform slot.
 
 Importing the package registers the profile, so `from_profile` finds it by name:
 
@@ -17,17 +13,11 @@ qblox_bus.profile  # 'qblox-default-v1'
 qblox_bus.version  # (0, 1, 0)
 ```
 
-If you have not met the capability protocol before, the [core capabilities
-guide](https://qilimanjaro-tech.github.io/qprogram/guide/capabilities.html)
-explains the shape: three axes (capabilities, limits, predicates) per
-(bus, domain) slot, `validate` returning diagnostics plus an execution plan, and
-`explain` rendering that plan as a tree. This page covers only what qblox puts
-in them.
+If you have not met the capability protocol before, the [core capabilities guide](https://qilimanjaro-tech.github.io/qprogram/guide/capabilities.html) explains the shape: three axes (capabilities, limits, predicates) per (bus, domain) slot, `validate` returning diagnostics plus an execution plan, and `explain` rendering that plan as a tree. This page covers only what qblox puts in them.
 
 ## Setup for the examples
 
-Every snippet below assumes this preamble. [Wiring the profile into a
-platform](#wiring-the-profile-into-a-platform) takes it apart line by line.
+Every snippet below assumes this preamble. [Wiring the profile into a platform](#wiring-the-profile-into-a-platform) takes it apart line by line.
 
 ```python
 import numpy as np
@@ -67,24 +57,17 @@ QBLOX_DEFAULT_V1.limits  # {'min_wait_duration_ns': 4}
 QBLOX_DEFAULT_V1.vendor_versions  # {'qblox': (0, 1, 0)}
 ```
 
-`extends` is `None`. The profile is declared from scratch rather than inherited,
-because a bus profile and the platform-level base share no tokens.
+`extends` is `None`. The profile is declared from scratch rather than inherited, because a bus profile and the platform-level base share no tokens.
 
-`vendor_versions` records the qblox protocol version the profile was written
-against, which is how a platform reports what it accepts in a `require qblox`
-header.
+`vendor_versions` records the qblox protocol version the profile was written against, which is how a platform reports what it accepts in a `require qblox` header.
 
 ### Core bus operations, 9 tokens
 
-`op.play`, `op.measure`, `op.wait`, `op.sync`, `op.set_frequency`,
-`op.set_phase`, `op.set_gain`, `op.reset_phase`, `op.set_offset`.
+`op.play`, `op.measure`, `op.wait`, `op.sync`, `op.set_frequency`, `op.set_phase`, `op.set_gain`, `op.reset_phase`, `op.set_offset`.
 
-These are the core operations that reach a qblox sequencer, and they are what a
-qblox bus runs in real time.
+These are the core operations that reach a qblox sequencer, and they are what a qblox bus runs in real time.
 
-`op.set_parameter` and `op.get_parameter` are **not** in the set. They are
-bus-scoped core operations, so they route to the bus slot, and a program that
-uses them against a qblox-only bus gets a hard error:
+`op.set_parameter` and `op.get_parameter` are **not** in the set. They are bus-scoped core operations, so they route to the bus slot, and a program that uses them against a qblox-only bus gets a hard error:
 
 ```python
 program = QProgram(schema=schema)
@@ -96,26 +79,15 @@ for diagnostic in diagnostics:
 # [error] missing-capability: 'SetParameter' requires capability 'op.set_parameter' which is not supported by 'qblox-default-v1' (rt) (at body[0])
 ```
 
-A platform that routes slow-control parameters through its own configuration
-layer adds those two tokens to the bus profile it derives from this one. See
-[Extending the profile](#extending-the-profile).
+A platform that routes slow-control parameters through its own configuration layer adds those two tokens to the bus profile it derives from this one. See [Extending the profile](#extending-the-profile).
 
 ### Waveform tokens, 13 tokens
 
-`waveform.single`, `waveform.iq`, `waveform.alias`, `waveform.arbitrary`,
-`waveform.chained`, `waveform.flat_top`, `waveform.gaussian`,
-`waveform.gaussian_drag_correction`, `waveform.ramp`, `waveform.snz`,
-`waveform.square`, `waveform.iq_drag`, `waveform.iq_pair`.
+`waveform.single`, `waveform.iq`, `waveform.alias`, `waveform.arbitrary`, `waveform.chained`, `waveform.flat_top`, `waveform.gaussian`, `waveform.gaussian_drag_correction`, `waveform.ramp`, `waveform.snz`, `waveform.square`, `waveform.iq_drag`, `waveform.iq_pair`.
 
-Three of these are shape-agnostic. `waveform.single` and `waveform.iq` say the
-bus accepts single-channel and two-path waveforms; `waveform.alias` says it
-accepts a string name to be resolved from a waveform library before execution.
-The other ten name the concrete pulse classes a qblox sequencer renders.
+Three of these are shape-agnostic. `waveform.single` and `waveform.iq` say the bus accepts single-channel and two-path waveforms; `waveform.alias` says it accepts a string name to be resolved from a waveform library before execution. The other ten name the concrete pulse classes a qblox sequencer renders.
 
-The core package registers more waveform classes than this list covers.
-`waveform.cosine`, `waveform.iq_rotation`, `waveform.iq_zero`,
-`waveform.modulated`, `waveform.sech`, `waveform.sine` and `waveform.tukey` are
-absent, so playing one of those on a qblox bus is a hard error naming the token:
+The core package registers more waveform classes than this list covers. `waveform.cosine`, `waveform.iq_rotation`, `waveform.iq_zero`, `waveform.modulated`, `waveform.sech`, `waveform.sine` and `waveform.tukey` are absent, so playing one of those on a qblox bus is a hard error naming the token:
 
 ```python
 from qprogram.waveforms import Tukey
@@ -133,33 +105,19 @@ for diagnostic in diagnostics:
 
 `measure.fields.iq`, `measure.fields.raw`, `measure.fields.state`.
 
-The complete core vocabulary. A qblox readout path can return the integrated IQ
-point, the raw ADC trace, and the thresholded state, so all three are supported.
-`measure.fields.state` is what makes a conditional on `handle.state` validate on
-a qblox bus, and it is the field `set_acquisition_threshold` and
-`set_acquisition_rotation` exist to calibrate.
+The complete core vocabulary. A qblox readout path can return the integrated IQ point, the raw ADC trace, and the thresholded state, so all three are supported. `measure.fields.state` is what makes a conditional on `handle.state` validate on a qblox bus, and it is the field `set_acquisition_threshold` and `set_acquisition_rotation` exist to calibrate.
 
 ### Vendor operations, 6 tokens
 
-`vendor.qblox.acquire`, `vendor.qblox.set_markers`, `vendor.qblox.set_trigger`,
-`vendor.qblox.wait_trigger`, `vendor.qblox.set_acquisition_threshold`,
-`vendor.qblox.set_acquisition_rotation`.
+`vendor.qblox.acquire`, `vendor.qblox.set_markers`, `vendor.qblox.set_trigger`, `vendor.qblox.wait_trigger`, `vendor.qblox.set_acquisition_threshold`, `vendor.qblox.set_acquisition_rotation`.
 
-One per operation in the namespace. All six qblox operations declare `bus` as
-their only bus attribute, so all six route to the bus slot, which is why their
-tokens live here rather than on the platform profile.
-[Operations](operations.md) documents each one.
+One per operation in the namespace. All six qblox operations declare `bus` as their only bus attribute, so all six route to the bus slot, which is why their tokens live here rather than on the platform profile. [Operations](operations.md) documents each one.
 
-The tokens are registered with the core `CAPABILITY_REGISTRY` before the profile
-is constructed, because `Profile.__post_init__` rejects a token it has never
-seen.
+The tokens are registered with the core `CAPABILITY_REGISTRY` before the profile is constructed, because `Profile.__post_init__` rejects a token it has never seen.
 
 ### Tokens the profile deliberately omits
 
-`block.*`, `sweep.*` and `expr.*` are not in this profile. Blocks route to the
-platform slot, and `expr.*` tokens are always checked against the platform slot
-whatever node carries them, so putting them on a bus profile would have no
-effect. They live in the core `qprogram-base-v1` bundle instead:
+`block.*`, `sweep.*` and `expr.*` are not in this profile. Blocks route to the platform slot, and `expr.*` tokens are always checked against the platform slot whatever node carries them, so putting them on a bus profile would have no effect. They live in the core `qprogram-base-v1` bundle instead:
 
 ```python
 sorted(qp.QPROGRAM_BASE_V1.capabilities)
@@ -182,9 +140,7 @@ The profile declares one limit:
 QBLOX_DEFAULT_V1.limits  # {'min_wait_duration_ns': 4}
 ```
 
-`min_wait_duration_ns` is a bus-level limit, set here to 4 ns. The validator
-compares it against every constant-valued `Wait.duration` on a bus wired to this
-profile:
+`min_wait_duration_ns` is a bus-level limit, set here to 4 ns. The validator compares it against every constant-valued `Wait.duration` on a bus wired to this profile:
 
 ```python
 program = QProgram(label="short-wait", schema=schema)
@@ -203,15 +159,11 @@ print(qp.explain(program, caps))
 # └─ wait q[0].drive 2  [rt]       !! limit-exceeded: Wait duration 2 ns is shorter than min_wait_duration_ns=4
 ```
 
-The three other limits the validator reads (`max_loop_nesting`,
-`max_parallel_loops`, `max_measurements`) are platform-level, so a qblox
-platform sets them on its platform slot, not here.
+The three other limits the validator reads (`max_loop_nesting`, `max_parallel_loops`, `max_measurements`) are platform-level, so a qblox platform sets them on its platform slot, not here.
 
 ## Predicates
 
-The profile declares two predicates. They are the two constraints that cannot be
-written as a flat token, because each depends on how a `Play` or a `Wait`
-interacts with the loop that binds its variable.
+The profile declares two predicates. They are the two constraints that cannot be written as a flat token, because each depends on how a `Play` or a `Wait` interacts with the loop that binds its variable.
 
 | Predicate                      | Fires when                                                      | Yields            | Code                            | Severity |
 |--------------------------------|-----------------------------------------------------------------|-------------------|---------------------------------|----------|
@@ -220,16 +172,9 @@ interacts with the loop that binds its variable.
 
 ### Arbitrary sweep at `Wait.duration`, a hard error
 
-The exact condition: the node is a `Wait`, its `duration` is a `Variable`, and
-`ctx.sweep_kind_of(duration)` is `"arbitrary"`. A qblox wait instruction takes
-one integer cycle count from a register that is incremented by a fixed step, so
-an arbitrary-kind source (`Values`, `Logspace`, `File`, or any of the
-combinators) has no register pattern to compile to. Host-side dispatch does not
-rescue it either, because qblox still emits the wait instruction per shot. That
-is why this is a `Diagnostic` and not a `DomainConstraint`: no domain can run it.
+The exact condition: the node is a `Wait`, its `duration` is a `Variable`, and `ctx.sweep_kind_of(duration)` is `"arbitrary"`. A qblox wait instruction takes one integer cycle count from a register that is incremented by a fixed step, so an arbitrary-kind source (`Values`, `Logspace`, `File`, or any of the combinators) has no register pattern to compile to. Host-side dispatch does not rescue it either, because qblox still emits the wait instruction per shot. That is why this is a `Diagnostic` and not a `DomainConstraint`: no domain can run it.
 
-A constant duration is fine, and so is a variable bound by `Range` or
-`Linspace`, whose `KIND` is `"linear"`.
+A constant duration is fine, and so is a variable bound by `Range` or `Linspace`, whose `KIND` is `"linear"`.
 
 ```python
 program = QProgram(label="wait-scan", schema=schema)
@@ -253,10 +198,7 @@ print(qp.explain(program, caps))
 #    └─ play q[0].drive "pi_pulse"      [rt]
 ```
 
-`[--]` is the empty domain set. The `Wait` cannot run anywhere, and the
-enclosing `Sweep` inherits that by intersection. The sibling `play` is
-unaffected and stays `[rt]`, which is how you read off that the loop itself is
-not the problem.
+`[--]` is the empty domain set. The `Wait` cannot run anywhere, and the enclosing `Sweep` inherits that by intersection. The sibling `play` is unaffected and stays `[rt]`, which is how you read off that the loop itself is not the problem.
 
 Swapping the source fixes it, with no other change:
 
@@ -271,21 +213,11 @@ qp.validate(program, caps)[0]  # []
 
 ### `IQDrag.sigma` swept in a loop, a soft restriction
 
-The exact condition: the node is a `Play`, its waveform is an `IQDrag`, its
-`sigma` is a `Variable`, and `ctx.binding_loop_of(sigma)` finds a loop. A qblox
-sequencer re-arms a real-time loop with a new amplitude or duration from a
-register, but a Drag envelope's gaussian and derivative samples are computed at
-upload time. Changing `sigma` means re-uploading the waveform, which means one
-qblox shot per iteration, dispatched from the host.
+The exact condition: the node is a `Play`, its waveform is an `IQDrag`, its `sigma` is a `Variable`, and `ctx.binding_loop_of(sigma)` finds a loop. A qblox sequencer re-arms a real-time loop with a new amplitude or duration from a register, but a Drag envelope's gaussian and derivative samples are computed at upload time. Changing `sigma` means re-uploading the waveform, which means one qblox shot per iteration, dispatched from the host.
 
-Per-iteration dispatch does work, so this is a `DomainConstraint`, not an error.
-It targets the **binding loop**, never the `Play`, and excludes `"rt"` only.
-The classifier subtracts that from the loop's support set. The `Play` keeps
-`[rt]`: what changes is the loop's iteration mechanism, not how the pulse is
-emitted.
+Per-iteration dispatch does work, so this is a `DomainConstraint`, not an error. It targets the **binding loop**, never the `Play`, and excludes `"rt"` only. The classifier subtracts that from the loop's support set. The `Play` keeps `[rt]`: what changes is the loop's iteration mechanism, not how the pulse is emitted.
 
-A `sigma` that is a bare unbound `Variable` does not fire the predicate. It is a
-constant at upload time.
+A `sigma` that is a bare unbound `Variable` does not fire the predicate. It is a constant at upload time.
 
 ```python
 program = QProgram(label="drag-sigma", schema=schema)
@@ -299,9 +231,7 @@ for diagnostic in diagnostics:
 # warning forced-host host body[0]
 ```
 
-The user-visible diagnostic is the classifier's `forced-host` warning, not the
-constraint itself. Constraints are silent when a fallback works; the warning
-says the fallback happened, and names the immediate cause:
+The user-visible diagnostic is the classifier's `forced-host` warning, not the constraint itself. Constraints are silent when a fallback works; the warning says the fallback happened, and names the immediate cause:
 
 ```python
 print(qp.explain(program, caps))
@@ -312,9 +242,7 @@ print(qp.explain(program, caps))
 #       └─ play q[0].drive IQDrag(amplitude=0.5, duration=40, sigma=sigma, beta=0.1)  [rt]
 ```
 
-The warning lands on `average`, the highest block in the forced chain, and its
-reason is attributed to the sub-block that caused it. The program still runs. It
-just runs slower than it looks, one upload per point.
+The warning lands on `average`, the highest block in the forced chain, and its reason is attributed to the sub-block that caused it. The program still runs. It just runs slower than it looks, one upload per point.
 
 Sweeping any other `IQDrag` field leaves the loop real-time:
 
@@ -330,17 +258,11 @@ sweep = next(node for node in program.body.walk() if type(node).__name__ == "Swe
 sorted(plan[sweep])  # ['rt']
 ```
 
-`['rt']` rather than `['rt', 'host']` because the bus slot in this wiring has no
-`host` half, so every operation under the loop supports `rt` alone. What matters
-is that `rt` survived.
+`['rt']` rather than `['rt', 'host']` because the bus slot in this wiring has no `host` half, so every operation under the loop supports `rt` alone. What matters is that `rt` survived.
 
 ## Wiring the profile into a platform
 
-`qblox-default-v1` fills bus slots. The platform slot needs the core
-`qprogram-base-v1`, which carries the block, sweep and expression tokens. A
-qblox bus is real-time by design, so its `BusCapabilities` declares an `rt` half
-and leaves `host` as `None`. The platform slot declares both halves, so a block
-can land in either domain depending on what its operation children require.
+`qblox-default-v1` fills bus slots. The platform slot needs the core `qprogram-base-v1`, which carries the block, sweep and expression tokens. A qblox bus is real-time by design, so its `BusCapabilities` declares an `rt` half and leaves `host` as `None`. The platform slot declares both halves, so a block can land in either domain depending on what its operation children require.
 
 ```python
 qblox_bus = qp.CompilerCapabilities.from_profile("qblox-default-v1")
@@ -361,15 +283,9 @@ caps = qp.PlatformCapabilities(
 )
 ```
 
-The `bus` keys are `(element_kind, bus_kind)` pairs, matched against a
-schema-backed `BusRef`'s `element` and `kind`. `default_bus_profile` catches
-everything else: a bus with no entry in the map, and any raw-string bus. Setting
-it to the same slot is what makes a plain-string bus behave like a schema-backed
-one.
+The `bus` keys are `(element_kind, bus_kind)` pairs, matched against a schema-backed `BusRef`'s `element` and `kind`. `default_bus_profile` catches everything else: a bus with no entry in the map, and any raw-string bus. Setting it to the same slot is what makes a plain-string bus behave like a schema-backed one.
 
-The mapping is where a mixed rack is expressed. A platform whose flux lines run
-on a slow DAC gives `("q", "flux")` a different profile and leaves drive and
-readout on qblox.
+The mapping is where a mixed rack is expressed. A platform whose flux lines run on a slow DAC gives `("q", "flux")` a different profile and leaves drive and readout on qblox.
 
 Checking the wiring directly:
 
@@ -379,8 +295,7 @@ caps.for_bus(q[0].drive).rt.supports("block.sweep")  # False
 caps.platform.rt.supports("block.sweep")  # True
 ```
 
-`block.sweep` is absent from the bus slot and present on the platform slot,
-which is exactly the split the routing rules expect.
+`block.sweep` is absent from the bus slot and present on the platform slot, which is exactly the split the routing rules expect.
 
 A program that stays inside the declaration validates clean:
 
@@ -409,17 +324,11 @@ print(qp.explain(program, caps))
 #       └─ qblox.acquire q[0].readout "weights" name="q0/readout/m0"                 [rt]
 ```
 
-`average` shows `[rt|host]` while the `sweep` under it shows `[rt]`. An
-`Average` takes its natural domain from its averaging-relevant operation
-children only, and it has none directly: the acquisition sits inside the sweep,
-which counts as a unit. The sweep is `[rt]` because the bus slot has no `host`
-half, so every operation in it supports `rt` alone.
+`average` shows `[rt|host]` while the `sweep` under it shows `[rt]`. An `Average` takes its natural domain from its averaging-relevant operation children only, and it has none directly: the acquisition sits inside the sweep, which counts as a unit. The sweep is `[rt]` because the bus slot has no `host` half, so every operation in it supports `rt` alone.
 
 ### Host-side operations still validate against `rt`
 
-`set_acquisition_threshold` and `set_acquisition_rotation` are realized as
-slow-control parameter writes, not sequencer instructions, yet in the wiring
-above they land in `[rt]`:
+`set_acquisition_threshold` and `set_acquisition_rotation` are realized as slow-control parameter writes, not sequencer instructions, yet in the wiring above they land in `[rt]`:
 
 ```python
 program = QProgram(label="discrimination", schema=schema)
@@ -452,11 +361,7 @@ print(qp.explain(program, caps))
 #       └─ qblox.acquire q[0].readout "weights" name="q0/readout/m0" fields=["state"]  [rt]
 ```
 
-This is not a contradiction. A profile's capability set is domain-agnostic: the
-same tokens are checked against whichever halves a platform fills. The domain
-column says which halves accepted the node, not which piece of hardware executes
-it. A platform that wants those two operations restricted to host-side dispatch
-declares a bus profile with a `host` half and puts their tokens only there.
+This is not a contradiction. A profile's capability set is domain-agnostic: the same tokens are checked against whichever halves a platform fills. The domain column says which halves accepted the node, not which piece of hardware executes it. A platform that wants those two operations restricted to host-side dispatch declares a bus profile with a `host` half and puts their tokens only there.
 
 ## Extending the profile
 
@@ -472,8 +377,7 @@ tight = qp.CompilerCapabilities.from_profile(
 tight.limits  # {'min_wait_duration_ns': 8}
 ```
 
-`extra_predicates` adds a rack-level constraint without republishing the bundle.
-This one refuses a trigger pulse pinned to the end of its operation:
+`extra_predicates` adds a rack-level constraint without republishing the bundle. This one refuses a trigger pulse pinned to the end of its operation:
 
 ```python
 def reject_end_position(node, ctx):
@@ -505,8 +409,7 @@ for diagnostic in diagnostics:
 # [error] myplatform.trigger-position: this module emits a trigger only at the start of an operation (at body[0])
 ```
 
-For a lasting change, declare a profile that extends this one. Capabilities and
-predicates accumulate from parent to child; limits inherit and the child wins:
+For a lasting change, declare a profile that extends this one. Capabilities and predicates accumulate from parent to child; limits inherit and the child wins:
 
 ```python
 platform_bus = qp.Profile(
@@ -526,16 +429,11 @@ derived.limits  # {'min_wait_duration_ns': 8}
 len(derived.predicates)  # 2, both inherited
 ```
 
-That is the shape a platform package uses to add the two slow-control tokens the
-bus profile leaves out.
+That is the shape a platform package uses to add the two slow-control tokens the bus profile leaves out.
 
 ## See also
 
 - [Operations](operations.md) for the tokens each operation declares.
-- [Lowering onto hardware](../developer/lowering.md) for what a compiler does
-  once validation passes.
-- [API reference](../reference/api.md) for `QBLOX_DEFAULT_V1` and the
-  operation classes.
-- The [core capabilities
-  guide](https://qilimanjaro-tech.github.io/qprogram/guide/capabilities.html)
-  for routing rules, the full diagnostic-code list, and the classifier.
+- [Lowering onto hardware](../developer/lowering.md) for what a compiler does once validation passes.
+- [API reference](../reference/api.md) for `QBLOX_DEFAULT_V1` and the operation classes.
+- The [core capabilities guide](https://qilimanjaro-tech.github.io/qprogram/guide/capabilities.html) for routing rules, the full diagnostic-code list, and the classifier.
