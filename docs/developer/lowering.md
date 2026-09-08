@@ -34,7 +34,7 @@ The package hooks into the core three ways: the runtime namespace, the typed mix
 Importing `qprogram_qblox` is the activation step, and it is the only one. `__init__.py` performs four registrations, in this order.
 
 1. **Runtime namespace.** `QProgram.register_vendor("qblox", QbloxNamespace)` puts the class in the core builder's vendor registry, so `program.qblox` resolves through `QProgram.__getattr__` on any program, the plain base class included.
-2. **Protocol version.** `register_vendor_version("qblox", __version__)` records the version, which `__init__.py` reads from the installed distribution metadata. This is the number the parser checks a file's `require qblox 0.1` line against: the line may ask for this version or any earlier one, and an earlier one whose spelling has since changed is repaired by the rewrites `register_vendor_migration` records.
+2. **Protocol version.** `register_vendor_version("qblox", __version__)` records the version, which `__init__.py` reads from the installed distribution metadata. This is the number the parser checks a file's `require qblox 0.2` line against: the line may ask for this version or any earlier one, and an earlier one whose spelling has since changed is repaired by the rewrites `register_vendor_migration` records.
 3. **Operations.** One `register_vendor_operation("qblox", name, cls)` call per class. `acquire` additionally passes the core measurement callbacks, so its handle serializes as a `name="..."` keyword like every other measurement.
 4. **Profile.** `_register()` from `profiles.py` puts `QBLOX_DEFAULT_V1` on the global profile registry, where `CompilerCapabilities.from_profile` finds it by name.
 
@@ -63,8 +63,8 @@ print("namespace:", type(program.qblox).__name__)
 ```
 
 ```text
-version:   0.1.0
-vendor:    0.1.0
+version:   0.2.0
+vendor:    0.2.0
 acquire:   Acquire
 set_markers name: ('qblox', 'set_markers')
 profile:   qblox-default-v1
@@ -458,7 +458,7 @@ import qprogram as qp
 
 text = """#!QProgram 0.2
 
-require qblox 0.1
+require qblox 0.2
 
 body:
   qblox.set_integration_length "readout_q0" 2000
@@ -481,7 +481,7 @@ One per module the change touched, matching the suite's existing layout:
 
 - `tests/test_operations.py`: construction, the attributes, `buses()`, `waveforms()` and `variables()`, structural equality against an identical node, and `required_capabilities()` for both a literal and an `Expression` argument.
 - `tests/test_namespace.py`: the method appends the right node to the active block, passes its arguments through, and validates its bus.
-- `tests/test_serialization.py`: a round trip through `dumps` and `loads` that is byte-stable, and the `require qblox 0.1` line in the output.
+- `tests/test_serialization.py`: a round trip through `dumps` and `loads` that is byte-stable, and the `require qblox 0.2` line in the output.
 - `tests/test_registration.py`: the operation resolves from the registry under `("qblox", "set_integration_length")`.
 - `tests/test_profile.py`: a program using the operation validates clean against `QBLOX_DEFAULT_V1`, and the token is in the profile's capability set.
 

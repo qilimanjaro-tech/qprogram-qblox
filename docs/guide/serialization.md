@@ -25,7 +25,7 @@ A program that touches a qblox operation carries one `require` line under the fo
 ```
 #!QProgram 0.2
 
-require qblox 0.1
+require qblox 0.2
 ```
 
 The writer emits it for you, and it walks the whole program to do so, so a `qblox.*` operation buried in a conditional arm or a fragment body still produces the line. A program with no qblox content produces no line at all.
@@ -51,22 +51,22 @@ from qprogram.serialization.registry import register_vendor_version
 register_vendor_version("qblox", version("qprogram-qblox"))
 ```
 
-That one number is what every `.qp` file is checked against. Major and minor govern compatibility; the patch component is informational, and the writer truncates it. An installed `0.1.0` therefore writes `require qblox 0.1`, and `qprogram.serialization.registry.get_vendor_version("qblox")` returns the full `0.1.0`.
+That one number is what every `.qp` file is checked against. Major and minor govern compatibility; the patch component is informational, and the writer truncates it. An installed `0.2.0` therefore writes `require qblox 0.2`, and `qprogram.serialization.registry.get_vendor_version("qblox")` returns the full `0.2.0`.
 
 On load, the parser resolves each `require` line against the installed extension, and one rule decides it: the installed package must be able to provide what the line asks for. The line carries `major.minor` and nothing else, since a patch release of this package changes code and never the wire form.
 
-The check runs before the body is read, so an incompatible file never half-loads. With `0.1.0` installed:
+The check runs before the body is read, so an incompatible file never half-loads. With `0.2.0` installed:
 
 ```python
 qp.loads(text)  # the file says: require qblox 1.0
 # ParseError: Line 3: file requires qblox 1.0, newer than the installed qblox
-#             0.1.0 — install qblox 1.0 or newer
+#             0.2.0 — install qblox 1.0 or newer
 
 qp.loads(text)  # the file says: require qblox 0.1.0
 # ParseError: Line 3: file version '0.1.0' must be exactly major.minor
 ```
 
-An older line is fine in the other direction: `require qblox 0.1` loads against an installed `0.4.2`, because everything `0.1` can spell is still there — and where a release did change a spelling, the [migration](../developer/lowering.md#changing-one-that-already-exists) it registered rewrites the body first, so even an earlier major loads.
+An older line is fine in the other direction: `require qblox 0.2` loads against an installed `0.4.2`, because everything `0.1` can spell is still there — and where a release did change a spelling, the [migration](../developer/lowering.md#changing-one-that-already-exists) it registered rewrites the body first, so even an earlier major loads.
 
 ## Auto-activation
 
@@ -77,7 +77,7 @@ If the vendor is installed but not yet imported, the parser imports it on the sp
 qblox = "qprogram_qblox"
 ```
 
-The entry-point *name* is the vendor namespace as it appears in `require` and in `qblox.<op>` statements. The *value* is the module whose import side effects do the registration. When `qp.load` reaches `require qblox 0.1` and finds no qblox extension registered, it looks the name up in that entry-point group and imports the module, then runs the version check against what the import registered. So this works in a fresh interpreter:
+The entry-point *name* is the vendor namespace as it appears in `require` and in `qblox.<op>` statements. The *value* is the module whose import side effects do the registration. When `qp.load` reaches `require qblox 0.2` and finds no qblox extension registered, it looks the name up in that entry-point group and imports the module, then runs the version check against what the import registered. So this works in a fresh interpreter:
 
 ```python
 import qprogram as qp
@@ -202,7 +202,7 @@ assert reloaded.body == program.body
 ```
 #!QProgram 0.2
 
-require qblox 0.1
+require qblox 0.2
 
 metadata:
   label: "discrimination calibration"

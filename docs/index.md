@@ -74,7 +74,7 @@ print(population.dims, population.shape)  # ('angle',) (21,)
 
 ## How it plugs in
 
-The core package defines three hooks and this one uses all three at import time: a runtime namespace registered with `QProgram.register_vendor`, a typed mixin for editors, and the serialization registry that maps each operation class to its `.qp` spelling. A fourth line, the `qprogram.vendors` entry point in `pyproject.toml`, lets `qprogram.load` import this package on demand when a file's header carries `require qblox 0.1`.
+The core package defines three hooks and this one uses all three at import time: a runtime namespace registered with `QProgram.register_vendor`, a typed mixin for editors, and the serialization registry that maps each operation class to its `.qp` spelling. A fourth line, the `qprogram.vendors` entry point in `pyproject.toml`, lets `qprogram.load` import this package on demand when a file's header carries `require qblox 0.2`.
 
 Because all four are declarations rather than patches, the same program can also carry operations from other vendor packages. [Getting started](getting-started.md) shows how to combine them.
 

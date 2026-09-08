@@ -265,7 +265,7 @@ The same program serializes to:
 ```
 #!QProgram 0.2
 
-require qblox 0.1
+require qblox 0.2
 
 metadata:
   label: "discrimination"

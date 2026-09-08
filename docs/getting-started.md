@@ -92,8 +92,8 @@ This one needs `qprogram-qdac` installed as well. The resulting file carries a `
 ```
 #!QProgram 0.2
 
-require qblox 0.1
-require qdac 0.1
+require qblox 0.2
+require qdac 0.2
 
 metadata:
   label: "two_vendors"
@@ -193,7 +193,7 @@ print("qprogram_qblox" in sys.modules)  # True, the parser imported it on demand
 print(qp.dumps(reloaded) == Path(".tmp/rotation.qp").read_text())  # True, the file round-trips
 ```
 
-The `require qblox 0.1` line sends the parser to the `qprogram.vendors` entry point group, where it finds this package and imports it. Pass `auto_activate=False` to `qp.load` or `qp.loads` to turn that off and get a `ParseError` for an unregistered vendor instead.
+The `require qblox 0.2` line sends the parser to the `qprogram.vendors` entry point group, where it finds this package and imports it. Pass `auto_activate=False` to `qp.load` or `qp.loads` to turn that off and get a `ParseError` for an unregistered vendor instead.
 
 ## Where to next?
 
