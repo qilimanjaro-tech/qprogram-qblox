@@ -1,22 +1,13 @@
 # Contributing
 
-The short version: keep the PR small, run the linter and the tests, and
-write the docs for anything a caller can see.
+The short version: keep the PR small, run the linter and the tests, and write the docs for anything a caller can see.
 
 ## Before you start
 
 Two things to read first.
 
-1. **[Lowering onto hardware](lowering.md).** It describes the five modules,
-   the registration that runs at import, and what a platform does with each
-   operation. Almost every change to this package touches one of those.
-2. **The core DSL's own developer guide**, in particular
-   [building a vendor extension](https://qilimanjaro-tech.github.io/qprogram/developer/vendor-extensions.html)
-   and
-   [capability protocol internals](https://qilimanjaro-tech.github.io/qprogram/developer/capability-protocol.html).
-   This package is one instance of that template. A change that fits the
-   template is easy to review; a change that fights it usually belongs in
-   the core instead.
+1. **[Lowering onto hardware](lowering.md).** It describes the five modules, the registration that runs at import, and what a platform does with each operation. Almost every change to this package touches one of those.
+2. **The core DSL's own developer guide**, in particular [building a vendor extension](https://qilimanjaro-tech.github.io/qprogram/developer/vendor-extensions.html) and [capability protocol internals](https://qilimanjaro-tech.github.io/qprogram/developer/capability-protocol.html). This package is one instance of that template. A change that fits the template is easy to review; a change that fights it usually belongs in the core instead.
 
 
 ## Development workflow
@@ -34,8 +25,7 @@ Two things to read first.
    uv run --group docs zensical serve
    ```
 
-   `mkdocstrings` imports the package to render the API reference, so the
-   docs build needs the project installed, not just the docs tooling.
+   `mkdocstrings` imports the package to render the API reference, so the docs build needs the project installed, not just the docs tooling.
 
 3. **Make your change.**
 
@@ -61,47 +51,27 @@ Two things to read first.
    uv run pytest -k "rotation"                 # by keyword
    ```
 
-   The suite is function-style, roughly a hundred tests across six modules,
-   and runs in about a second. Anything much slower than that is doing work
-   a unit test should not.
+   The suite is function-style, roughly a hundred tests across six modules, and runs in about a second. Anything much slower than that is doing work a unit test should not.
 
-7. **Update the docs.** Anything a caller can see needs an entry in the
-   guide, and every new public class or method needs its `mkdocstrings`
-   entry in the [API reference](../reference/api.md).
+7. **Update the docs.** Anything a caller can see needs an entry in the guide, and every new public class or method needs its `mkdocstrings` entry in the [API reference](../reference/api.md).
 
-8. **Add a changelog entry.** Anything a caller would notice gets one news
-   fragment under `changelog/`, named `<pr-number>.<type>.md`, where the type
-   is `added`, `changed`, `fixed`, or `removed`.
+8. **Add a changelog entry.** Anything a caller would notice gets one news fragment under `changelog/`, named `<pr-number>.<type>.md`, where the type is `added`, `changed`, `fixed`, or `removed`.
 
    ```bash
    uv run towncrier create 123.added.md
    ```
 
-   Write one or two sentences about what changed for somebody using the
-   package. A fragment written before the pull request has a number takes a `+`
-   prefix and any name, as in `+marker-pulse-width.added.md`; rename it once
-   the number exists so the entry carries a link. Internal refactors, test-only
-   changes, and docs corrections do not need one.
+   Write one or two sentences about what changed for somebody using the package. A fragment written before the pull request has a number takes a `+` prefix and any name, as in `+marker-pulse-width.added.md`; rename it once the number exists so the entry carries a link. Internal refactors, test-only changes, and docs corrections do not need one.
 
-9. **Open the PR.** The workflows under `.github/workflows/` run on it.
-    `tests.yml` runs the suite on 3.11 and 3.14 for a pull request,
-    and on the whole of 3.11 through 3.14 for a push to `main`; the coverage
-    upload rides on the 3.13 job, so only a push produces it.
-    `code_quality.yml` runs `ruff check` and `ruff format --diff` once on
-    3.13, then `ty check` once per supported version. `docs.yml` builds this
-    site.
+9. **Open the PR.** The workflows under `.github/workflows/` run on it. `tests.yml` runs the suite on 3.11 and 3.14 for a pull request, and on the whole of 3.11 through 3.14 for a push to `main`; the coverage upload rides on the 3.13 job, so only a push produces it. `code_quality.yml` runs `ruff check` and `ruff format --diff` once on 3.13, then `ty check` once per supported version. `docs.yml` builds this site.
 
 ## What "small PR" means
 
-One concept per PR. A new operation plus a profile change plus a fix in the
-namespace is three PRs. Each one is easier to review, easier to revert, and
-easier to bisect against.
+One concept per PR. A new operation plus a profile change plus a fix in the namespace is three PRs. Each one is easier to review, easier to revert, and easier to bisect against.
 
 ## The checklist for a new operation
 
-Four kinds of change land together, in the same PR. The
-[five source edits](lowering.md#adding-an-operation) are the
-first item.
+Four kinds of change land together, in the same PR. The [five source edits](lowering.md#adding-an-operation) are the first item.
 
 | Kind          | What it means here                                                                                                                                                            |
 |---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -110,122 +80,59 @@ first item.
 | Docs          | [Operations](../guide/operations.md) for what it means and when to reach for it, and [Capabilities and profiles](../guide/capabilities.md) if the profile changed.               |
 | API reference | The class and the namespace method in [the API reference](../reference/api.md), so `mkdocstrings` renders the docstrings you just wrote.                                        |
 
-A missing token registration or a missing profile entry is the failure mode
-to watch for: the operation builds and serializes, and every program using
-it fails validation. `tests/test_profile.py` is where that gets caught.
+A missing token registration or a missing profile entry is the failure mode to watch for: the operation builds and serializes, and every program using it fails validation. `tests/test_profile.py` is where that gets caught.
 
 ## Style notes
 
-These are the rules the project enforces. All of them are configured in
-`pyproject.toml`.
+These are the rules the project enforces. All of them are configured in `pyproject.toml`.
 
-- **Ruff with `preview = true` and `select = ["ALL"]`**, minus a curated
-  ignore list written as rule *names* rather than codes, so the config says
-  why each exemption exists. Line length is 120 and the formatter owns it.
-  Expect the linter to push back on most external code.
-- **Suppressions use the same names.** Write
-  `# ruff: ignore[import-outside-top-level]`, not a numeric code. There is
-  not a single numeric suppression in this package.
-- **Docstrings are enforced.** Preview mode runs both the `D` and the `DOC`
-  families under the Google convention. Every parameter gets a
-  `name (type): Description.` entry: the parenthesized type is house style
-  even though the signature is annotated. A function returning something
-  either opens its summary with the word "Return" or carries a `Returns:`
-  section, and every exception a caller can observe gets a `Raises:` entry
-  reading `ExceptionType: If <condition>.` Constructor arguments are
-  documented in an `Args:` section on the **class** docstring, with no
-  docstring on `__init__`, because `mkdocstrings` runs with
-  `merge_init_into_class = true`.
-- **Cross-references are Markdown, not Sphinx roles.** Write
-  `` [`Acquire`][qprogram_qblox.Acquire] `` for a target this site documents, and
-  `` [`Expression`][qprogram.Expression] `` for one the core DSL documents:
-  `zensical.toml` loads that project's published `objects.inv` as an
-  `inventories` entry, so a core type resolves to its page on that site. Plain
-  `` `Expression` `` is for anything neither site renders, such as a builtin or
-  a stdlib name. A Sphinx role such as `` :class:`~qprogram.Expression` ``
-  would reach the page as literal text, since mkdocstrings reads a docstring as
-  Markdown and has no reStructuredText reader;
-  `tests/test_docstring_style.py` fails the suite on one. The docs build runs
-  with `--strict`, so a cross-reference neither site can resolve fails CI as
-  well.
-- **Every file carries the Apache header**, the standard 13-line notice with
-  `Copyright 2026 Qilimanjaro Quantum Tech`, before the module docstring and
-  in test files too. Ruff's `missing-copyright-notice` rule fails the lint
-  on a file without it.
-- **Comments say something the code does not.** A comment that restates the
-  next line is worse than no comment. Docstrings follow the same rule and
-  describe current behavior, never the change that produced it.
-- **Type hints everywhere.** `ty` checks `src` against every supported
-  Python version.
+- **Ruff with `preview = true` and `select = ["ALL"]`**, minus a curated ignore list written as rule *names* rather than codes, so the config says why each exemption exists. Line length is 120 and the formatter owns it. Expect the linter to push back on most external code.
+- **Suppressions use the same names.** Write `# ruff: ignore[import-outside-top-level]`, not a numeric code. There is not a single numeric suppression in this package.
+- **Docstrings are enforced.** Preview mode runs both the `D` and the `DOC` families under the Google convention. Every parameter gets a `name (type): Description.` entry: the parenthesized type is house style even though the signature is annotated. A function returning something either opens its summary with the word "Return" or carries a `Returns:` section, and every exception a caller can observe gets a `Raises:` entry reading `ExceptionType: If <condition>.` Constructor arguments are documented in an `Args:` section on the **class** docstring, with no docstring on `__init__`, because `mkdocstrings` runs with `merge_init_into_class = true`.
+- **Cross-references are Markdown, not Sphinx roles.** Write `` [`Acquire`][qprogram_qblox.Acquire] `` for a target this site documents, and `` [`Expression`][qprogram.Expression] `` for one the core DSL documents: `zensical.toml` loads that project's published `objects.inv` as an `inventories` entry, so a core type resolves to its page on that site. Plain `` `Expression` `` is for anything neither site renders, such as a builtin or a stdlib name. A Sphinx role such as `` :class:`~qprogram.Expression` `` would reach the page as literal text, since mkdocstrings reads a docstring as Markdown and has no reStructuredText reader; `tests/test_docstring_style.py` fails the suite on one. The docs build runs with `--strict`, so a cross-reference neither site can resolve fails CI as well.
+- **Every file carries the Apache header**, the standard 13-line notice with `Copyright 2026 Qilimanjaro Quantum Tech`, before the module docstring and in test files too. Ruff's `missing-copyright-notice` rule fails the lint on a file without it.
+- **Comments say something the code does not.** A comment that restates the next line is worse than no comment. Docstrings follow the same rule and describe current behavior, never the change that produced it.
+- **Type hints everywhere.** `ty` checks `src` against every supported Python version.
 - **Two-space indentation in `.qp` text.** Match it in test fixtures.
-- **Function-style tests.** No test classes. Use fixtures and
-  parametrization. `tests/conftest.py` holds the shared schema and program
-  fixtures.
-- **No new runtime dependencies.** This package depends on `qprogram` and
-  nothing else, and it should stay that way. Anything a single operation
-  needs belongs behind an optional extra, if anywhere.
+- **Function-style tests.** No test classes. Use fixtures and parametrization. `tests/conftest.py` holds the shared schema and program fixtures.
+- **No new runtime dependencies.** This package depends on `qprogram` and nothing else, and it should stay that way. Anything a single operation needs belongs behind an optional extra, if anywhere.
 
 ## Releasing
 
-`CHANGELOG.md` is assembled from the fragments in `changelog/`, so it is written
-once per release rather than edited per PR. A release goes out from its own pull
-request:
+`CHANGELOG.md` is assembled from the fragments in `changelog/`, so it is written once per release rather than edited per PR. A release goes out from its own pull request:
 
 1. Branch from an up-to-date `main`.
-2. Set the new version. This writes both `pyproject.toml` and `uv.lock`; nothing
-   else holds the literal, since the version is read from the installed
-   metadata.
+2. Set the new version. This writes both `pyproject.toml` and `uv.lock`; nothing else holds the literal, since the version is read from the installed metadata.
 
    ```bash
    uv version 0.2.0
    uv sync
    ```
 
-3. Assemble the changelog. Pass the version explicitly. Left to guess, towncrier
-   reads the *installed* metadata and can render a stale number into a heading
-   that is never regenerated.
+3. Assemble the changelog. Pass the version explicitly. Left to guess, towncrier reads the *installed* metadata and can render a stale number into a heading that is never regenerated.
 
    ```bash
    uv run towncrier build --draft --version "$(uv version --short)"   # preview
    uv run towncrier build --version "$(uv version --short)" --yes
    ```
 
-4. Read the rendered section and edit it. Fragments are written weeks apart by
-   different people and rarely read as one voice when they land together.
+4. Read the rendered section and edit it. Fragments are written weeks apart by different people and rarely read as one voice when they land together.
 5. Open the release PR, and merge it once CI is green.
-6. Create the GitHub Release on the merge commit, tagged with the version now in
-   `pyproject.toml` and no `v` prefix. Publishing it starts `publish.yml`, which
-   runs `uv build` for the wheel and the sdist, checks both with `twine check`,
-   and uploads them through trusted publishing. Pre-releases publish too.
-7. Approve the deployment. The run waits on the `pypi` environment until a
-   reviewer releases it. PyPI never lets a file be replaced, so this approval is
-   the last point at which a wrong version can be stopped.
+6. Create the GitHub Release on the merge commit, tagged with the version now in `pyproject.toml` and no `v` prefix. Publishing it starts `publish.yml`, which runs `uv build` for the wheel and the sdist, checks both with `twine check`, and uploads them through trusted publishing. Pre-releases publish too.
+7. Approve the deployment. The run waits on the `pypi` environment until a reviewer releases it. PyPI never lets a file be replaced, so this approval is the last point at which a wrong version can be stopped.
 
-`publish.yml` can also be started by hand from the Actions tab, which is how the
-first release goes out and how a run that failed on a transient error is
-retried. A manual run takes three inputs: `platform` chooses between PyPI and
-the `qilimanjaro` AWS CodeArtifact domain, `repository` names the CodeArtifact
-repository, and `dry_run` builds and validates the distributions without
-uploading them.
+`publish.yml` can also be started by hand from the Actions tab, which is how the first release goes out and how a run that failed on a transient error is retried. A manual run takes three inputs: `platform` chooses between PyPI and the `qilimanjaro` AWS CodeArtifact domain, `repository` names the CodeArtifact repository, and `dry_run` builds and validates the distributions without uploading them.
 
 ## Commit messages
 
-Short, imperative, explanatory. The body matters more than the title:
-explain why, not what. `git log` is a good template.
+Short, imperative, explanatory. The body matters more than the title: explain why, not what. `git log` is a good template.
 
 ## License and attribution
 
-Apache License 2.0. The full text is in `LICENSE` at the repository root,
-and every source file carries the matching header. By opening a PR you agree
-to license your contribution under the same terms.
+Apache License 2.0. The full text is in `LICENSE` at the repository root, and every source file carries the matching header. By opening a PR you agree to license your contribution under the same terms.
 
 ## Where to ask
 
-- **Bugs and feature requests.** Open an issue with a minimal program that
-  reproduces the problem, and the `.qp` text for it.
-- **Design questions.** Open an issue naming the affected code, the behavior
-  you expect, and the page that documents it.
-- **Something that belongs in the core language.** Open it against
-  <https://github.com/qilimanjaro-tech/qprogram> instead. If you are not
-  sure which side a change belongs on, say so in the issue; the boundary is
-  the interesting part of the question.
+- **Bugs and feature requests.** Open an issue with a minimal program that reproduces the problem, and the `.qp` text for it.
+- **Design questions.** Open an issue naming the affected code, the behavior you expect, and the page that documents it.
+- **Something that belongs in the core language.** Open it against <https://github.com/qilimanjaro-tech/qprogram> instead. If you are not sure which side a change belongs on, say so in the issue; the boundary is the interesting part of the question.
