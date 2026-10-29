@@ -20,7 +20,7 @@ to and from ``.qp`` by the vendor registry.
 They span both kinds of vendor operation. [`Acquire`][qprogram_qblox.Acquire],
 [`SetMarkers`][qprogram_qblox.SetMarkers], [`SetTrigger`][qprogram_qblox.SetTrigger] and
 [`WaitTrigger`][qprogram_qblox.WaitTrigger] each map to one sequencer instruction;
-[`SetAcquisitionThreshold`][qprogram_qblox.SetAcquisitionThreshold] and
+[`Scope`][qprogram_qblox.Scope], [`SetAcquisitionThreshold`][qprogram_qblox.SetAcquisitionThreshold] and
 [`SetAcquisitionRotation`][qprogram_qblox.SetAcquisitionRotation] map to no sequencer instruction at all and are
 realized as slow-control parameter writes. The AST draws no distinction between the two, and neither does the ``.qp``
 format.
@@ -35,6 +35,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
+from qprogram.errors import ValidationError
 from qprogram.operations.operation import MeasurementField, MeasurementOperation, Operation, normalize_fields
 
 if TYPE_CHECKING:
@@ -66,7 +67,9 @@ class Acquire(MeasurementOperation):
             iterable of [`MeasurementField`][qprogram.MeasurementField] members. Default
             ``(MeasurementField.IQ,)``. See [`Measure`][qprogram.operations.Measure] for the full
             description. Stored canonically ordered and deduplicated by
-            [`normalize_fields`][qprogram.operations.operation.normalize_fields].
+            [`normalize_fields`][qprogram.operations.operation.normalize_fields]. ``qblox-default-v1``
+            accepts `IQ` and `STATE`; `RAW` fails validation, and [`Scope`][qprogram_qblox.Scope]
+            records the raw trace instead.
 
     Raises:
         ValidationError: If ``fields`` is a bare string, is not iterable, requests no field at all,
@@ -106,6 +109,65 @@ class Acquire(MeasurementOperation):
             if tok is not None:
                 caps.add(tok)
         return caps
+
+
+class Scope(MeasurementOperation):
+    """A raw ADC trace recorded by the scope of the QRM that drives a readout bus.
+
+    A QRM has one scope. It records the module's two inputs before any sequencer processing, so the
+    trace is not NCO-demodulated, not weighted, and carries every tone on those inputs, including
+    other readout buses multiplexed on the same module. It is triggered by the acquisitions on one
+    sequencer, so this node is a setting for the whole run rather than a measurement of its own: the
+    platform reads one trace back, with dims ``("time", "IQ")``, however many acquisitions triggered
+    it.
+
+    It is a [`MeasurementOperation`][qprogram.operations.operation.MeasurementOperation] so the trace is read
+    through its handle (``result.get(scope, field="raw")``) or its name, and so its name shares the
+    program's uniqueness check with every other measurement. `fields` is always ``("raw",)``.
+
+    Args:
+        bus (str): Readout bus whose acquisitions trigger the scope. Its QRM is the module scoped.
+        handle (MeasurementHandle): The canonical [`MeasurementHandle`][qprogram.MeasurementHandle] the trace
+            is stored under.
+        averaging (bool): ``True`` adds every trigger into the scope buffer and divides by their
+            count. ``False`` overwrites the buffer on each trigger, so the trace is the last one
+            only. Applied to both input paths. Default ``True``.
+        trigger_level (float | None): ``None`` triggers on the sequencer's acquisitions. A number in
+            ``[-1, 1]`` triggers instead when the input crosses that level, on both input paths.
+            Default ``None``.
+
+    Raises:
+        ValidationError: If ``trigger_level`` is not ``None`` or a number in ``[-1, 1]``.
+    """
+
+    def __init__(
+        self,
+        bus: str,
+        handle: MeasurementHandle,
+        averaging: bool = True,
+        trigger_level: float | None = None,
+    ) -> None:
+        if trigger_level is not None and (
+            isinstance(trigger_level, bool)
+            or not isinstance(trigger_level, int | float)
+            or not -1 <= trigger_level <= 1
+        ):
+            msg = f"trigger_level must be None or a number in [-1, 1], got {trigger_level!r}"
+            raise ValidationError(msg)
+        self.bus = bus
+        self.handle = handle
+        self.averaging = averaging
+        self.trigger_level = trigger_level
+        self.fields: tuple[str, ...] = (MeasurementField.RAW,)
+
+    def required_capabilities(self) -> set[str]:
+        """Return ``vendor.qblox.scope``, the operation's identity token.
+
+        The ``measure.fields.raw`` token the inherited method would add is left out on purpose:
+        ``qblox-default-v1`` does not list it, because a qblox measurement cannot return a raw
+        trace of its own, and the scope is how a program asks for the module's trace instead.
+        """
+        return {"vendor.qblox.scope"}
 
 
 class SetMarkers(Operation):

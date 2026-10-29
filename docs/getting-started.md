@@ -197,7 +197,7 @@ The `require qblox 0.2` line sends the parser to the `qprogram.vendors` entry po
 
 ## Where to next?
 
-- [Operations](guide/operations.md) covers all six operations, their arguments, and their units.
+- [Operations](guide/operations.md) covers all seven operations, their arguments, and their units.
 - [Capabilities and profiles](guide/capabilities.md) explains `QBLOX_DEFAULT_V1`, its limits, and the two constraints it declares.
 - [Saving and loading](guide/serialization.md) covers the wire form and version checking.
 - [Lowering onto hardware](developer/lowering.md) is for platform authors turning these nodes into sequencer code.

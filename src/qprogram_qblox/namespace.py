@@ -25,11 +25,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from qprogram.errors import ValidationError
 from qprogram.operations.operation import MeasurementField
 from qprogram.vendor import VendorNamespace
 
 from qprogram_qblox.operations import (
     Acquire,
+    Scope,
     SetAcquisitionRotation,
     SetAcquisitionThreshold,
     SetMarkers,
@@ -75,8 +77,10 @@ class QbloxNamespace(VendorNamespace):
             weights (IQWaveform | str): Integration weights, either a concrete
                 [`IQWaveform`][qprogram.waveforms.IQWaveform] or a string alias.
             fields (Iterable[MeasurementField]): Which measurement fields to produce, as an iterable
-                of [`MeasurementField`][qprogram.MeasurementField] members. Default ``(MeasurementField.IQ,)``;
-                `RAW` asks for the raw ADC trace.
+                of [`MeasurementField`][qprogram.MeasurementField] members. Default ``(MeasurementField.IQ,)``.
+                A qblox bus produces `IQ` and `STATE`. `RAW` builds, but fails validation against
+                ``qblox-default-v1`` with ``missing-capability``; record the raw trace with
+                [`scope`][qprogram_qblox.QbloxNamespace.scope] instead.
             name (str | None): Explicit measurement name. Auto-allocated when omitted.
 
         Returns:
@@ -94,6 +98,58 @@ class QbloxNamespace(VendorNamespace):
             bus=bus,
             weights=weights,
             fields=fields,
+            name=name,
+        )
+
+    def scope(
+        self,
+        bus: str,
+        *,
+        averaging: bool = True,
+        trigger_level: float | None = None,
+        name: str | None = None,
+    ) -> MeasurementHandle:
+        """Append a [`Scope`][qprogram_qblox.Scope] operation.
+
+        The acquisitions on ``bus`` then trigger the scope of its QRM for the whole run, wherever the
+        call sits in the program. Read the trace back with ``result.get(handle, field="raw")``, or by
+        name when the handle is out of reach, for example when the program is built in another module.
+
+        Scopes are named ``scope0``, ``scope1``, ... in declaration order, skipping names already in
+        use. The counter is separate from the ``m0``, ``m1``, ... one, so adding or removing a scope
+        never renames an acquisition.
+
+        Args:
+            bus (str): Readout bus whose acquisitions trigger the scope. Its QRM is the module scoped.
+            averaging (bool): ``True`` adds every trigger into the scope buffer and divides by their
+                count. ``False`` keeps only the last trigger. Default ``True``.
+            trigger_level (float | None): ``None`` triggers on the sequencer's acquisitions. A number
+                in ``[-1, 1]`` triggers when the input crosses that level instead. Default ``None``.
+            name (str | None): Explicit measurement name. Auto-allocated when omitted.
+
+        Returns:
+            The [`MeasurementHandle`][qprogram.MeasurementHandle] the trace is stored under.
+
+        Raises:
+            ValidationError: If ``bus`` is already scoped in this program, if ``trigger_level`` is
+                not ``None`` or a number in ``[-1, 1]``, if ``name`` is empty, is not a string, or is
+                already used by another measurement in the program, or if ``bus`` is a
+                [`BusRef`][qprogram.BusRef] from another schema than the one attached to the program.
+        """
+        if any(isinstance(node, Scope) and node.bus == bus for node in self._program.body.walk()):
+            msg = f"bus {bus!r} is already scoped in this program; a QRM has one scope, so scope each bus once"
+            raise ValidationError(msg)
+        if name is None:
+            used_names = {handle.name for handle in self._program.measurement_handles()}
+            n = 0
+            while f"scope{n}" in used_names:
+                n += 1
+            name = f"scope{n}"
+        return self._append_measurement(
+            Scope,
+            bus=bus,
+            averaging=averaging,
+            trigger_level=trigger_level,
             name=name,
         )
 
