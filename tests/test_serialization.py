@@ -24,7 +24,7 @@ import math
 import re
 
 import pytest
-from _header import HEADER, VENDOR_MAJOR, VENDOR_VERSION, needs_core_migrations
+from _header import HEADER, REQUIRE, VENDOR_MAJOR, VENDOR_VERSION, needs_core_migrations
 from qprogram import ParseError, dumps, loads
 from qprogram.sweeps import Range
 from qprogram.waveforms import IQDrag, IQPair, Square
@@ -32,6 +32,7 @@ from qprogram.waveforms import IQDrag, IQPair, Square
 from qprogram_qblox import QProgram as QbloxQProgram
 from qprogram_qblox.operations import (
     Acquire,
+    Scope,
     SetAcquisitionRotation,
     SetAcquisitionThreshold,
     SetMarkers,
@@ -194,6 +195,60 @@ def test_acquire_emits_name_kwarg():
     assert op.name == "m0"
 
 
+def test_scope_round_trip():
+    p = QbloxQProgram()
+    p.qblox.scope("readout")
+    text = dumps(p)
+    assert 'qblox.scope "readout" name="scope0"\n' in text
+    reloaded = loads(text)
+    op = reloaded.body.elements[0]
+    assert isinstance(op, Scope)
+    assert op.name == "scope0"
+    assert reloaded.body == p.body
+
+
+def test_scope_with_all_kwargs_round_trip():
+    p = QbloxQProgram()
+    p.qblox.scope("readout", averaging=False, trigger_level=-0.25, name="trace")
+    text = dumps(p)
+    assert 'qblox.scope "readout" name="trace" averaging=false trigger_level=-0.25' in text
+    reloaded = loads(text)
+    op = reloaded.body.elements[0]
+    assert op.averaging is False
+    assert op.trigger_level == pytest.approx(-0.25)
+    assert dumps(reloaded) == text
+
+
+def test_scope_and_acquire_keep_their_names_across_round_trip(transmon_schema):
+    p = QbloxQProgram(schema=transmon_schema)
+    p.qblox.scope(transmon_schema.q[0].readout)
+    with p.average(1000):
+        p.qblox.acquire(transmon_schema.q[0].readout, "weights")
+    reloaded = loads(dumps(p))
+    assert [h.name for h in reloaded.measurement_handles()] == ["scope0", "q0/readout/m0"]
+
+
+def test_scope_name_in_handle_slot_loads():
+    """The second positional token binds to the ``handle`` slot, as it does for any measurement."""
+    text = f'{HEADER}\n{REQUIRE}\nbody:\n  qblox.scope "readout" "trace"\n'
+    op = loads(text).body.elements[0]
+    assert isinstance(op, Scope)
+    assert op.name == "trace"
+
+
+def test_scope_without_a_name_rejected():
+    """An unnamed line would take an ``m<n>`` name and rename the acquisitions after it."""
+    text = f'{HEADER}\n{REQUIRE}\nbody:\n  qblox.scope "readout"\n  qblox.acquire "readout" "weights"\n'
+    with pytest.raises(ParseError, match=r'qblox\.scope needs its name as a quoted string, as in name="scope0"'):
+        loads(text)
+
+
+def test_scope_trigger_level_outside_range_rejected_on_load():
+    text = f'{HEADER}\n{REQUIRE}\nbody:\n  qblox.scope "readout" name="scope0" trigger_level=1.5\n'
+    with pytest.raises(ParseError, match=r"Line 4: trigger_level must be None or a number in \[-1, 1\], got 1\.5"):
+        loads(text)
+
+
 # ---------------------------------------------------------------------------
 # Inline waveforms inside vendor ops
 # ---------------------------------------------------------------------------
@@ -283,6 +338,7 @@ def test_loads_with_a_patch_in_the_require_line_rejected():
 def test_full_features_round_trip(transmon_schema):
     p = QbloxQProgram(label="big-qblox", schema=transmon_schema)
     v = p.variable("freq")
+    p.qblox.scope(transmon_schema.q[0].readout, averaging=False, trigger_level=0.5)
     with p.average(100), p.sweep(v, Range(4e9, 6e9, 1e6)):
         p.set_frequency(transmon_schema.q[0].drive, v)
         p.qblox.set_markers(transmon_schema.q[0].drive, "0001")
