@@ -23,14 +23,13 @@ from __future__ import annotations
 import math
 
 import pytest
-from qprogram import MeasurementHandle, ValidationError, Variable
+from qprogram import MeasurementHandle, Variable
 from qprogram.vendor import VendorNamespace
 
 from qprogram_qblox import QProgram as QbloxQProgram
 from qprogram_qblox.namespace import QbloxNamespace
 from qprogram_qblox.operations import (
     Acquire,
-    Scope,
     SetAcquisitionRotation,
     SetAcquisitionThreshold,
     SetMarkers,
@@ -80,89 +79,6 @@ def test_acquire_shares_counter_with_core_measure(qblox_program, transmon_schema
     h1 = qblox_program.qblox.acquire(transmon_schema.q[0].readout, "weights")
     assert h0.name == "q0/readout/m0"
     assert h1.name == "q0/readout/m1"
-
-
-# ---------------------------------------------------------------------------
-# scope
-# ---------------------------------------------------------------------------
-
-
-def test_scope_returns_handle_and_appends_op(qblox_program):
-    handle = qblox_program.qblox.scope("readout")
-    assert isinstance(handle, MeasurementHandle)
-    (op,) = qblox_program.body.elements
-    assert isinstance(op, Scope)
-    assert op.handle is handle
-    assert op.averaging is True
-    assert op.trigger_level is None
-
-
-def test_scope_with_all_kwargs(qblox_program):
-    handle = qblox_program.qblox.scope("readout", averaging=False, trigger_level=-0.5, name="trace")
-    op = qblox_program.body.elements[0]
-    assert handle.name == "trace"
-    assert op.averaging is False
-    assert op.trigger_level == pytest.approx(-0.5)
-
-
-def test_scope_names_count_in_declaration_order(qblox_program, transmon_schema):
-    """Schema-backed or not, scopes take the global ``scope0``, ``scope1``, ... names."""
-    s0 = qblox_program.qblox.scope(transmon_schema.q[0].readout)
-    s1 = qblox_program.qblox.scope("readout_q1")
-    assert s0.name == "scope0"
-    assert s1.name == "scope1"
-
-
-@pytest.mark.parametrize("with_scope", [False, True])
-def test_scope_does_not_rename_acquisitions(qblox_program, transmon_schema, with_scope):
-    """Scopes have their own counter, so adding one leaves every acquisition name where it was."""
-    if with_scope:
-        qblox_program.qblox.scope("readout")
-    m0 = qblox_program.qblox.acquire("readout", "weights")
-    m1 = qblox_program.qblox.acquire(transmon_schema.q[0].readout, "weights")
-    assert m0.name == "m0"
-    assert m1.name == "q0/readout/m0"
-
-
-def test_scope_auto_name_skips_names_in_use(qblox_program):
-    qblox_program.qblox.acquire("readout_q0", "weights", name="scope0")
-    handle = qblox_program.qblox.scope("readout_q1")
-    assert handle.name == "scope1"
-
-
-def test_scope_explicit_name_already_used_rejected(qblox_program):
-    qblox_program.qblox.acquire("readout_q0", "weights", name="trace")
-    with pytest.raises(ValidationError, match="'trace' is already used by another measurement"):
-        qblox_program.qblox.scope("readout_q1", name="trace")
-
-
-def test_scope_same_bus_twice_rejected(qblox_program, transmon_schema):
-    qblox_program.qblox.scope(transmon_schema.q[0].readout)
-    with pytest.raises(ValidationError, match="'q0/readout' is already scoped in this program"):
-        qblox_program.qblox.scope(transmon_schema.q[0].readout, name="other")
-
-
-def test_scope_same_bus_inside_a_block_rejected(qblox_program):
-    """The check walks the whole program, not only the block the call appends to."""
-    with qblox_program.average(10):
-        qblox_program.qblox.scope("readout")
-    with pytest.raises(ValidationError, match="already scoped"):
-        qblox_program.qblox.scope("readout")
-
-
-def test_scope_trigger_level_outside_range_rejected_at_call(qblox_program):
-    with pytest.raises(ValidationError, match="trigger_level"):
-        qblox_program.qblox.scope("readout", trigger_level=1.5)
-    assert qblox_program.body.elements == []
-
-
-def test_scope_name_survives_rebind(qblox_program, transmon_schema):
-    """A scope is read back by name, so rebinding its bus must not re-derive it."""
-    qblox_program.qblox.scope(transmon_schema.q[0].readout)
-    rebound = qblox_program.rebind(elements={("q", 0): ("q", 1)})
-    (op,) = rebound.body.elements
-    assert op.bus == transmon_schema.q[1].readout
-    assert op.name == "scope0"
 
 
 # ---------------------------------------------------------------------------

@@ -55,7 +55,6 @@ from qprogram.waveforms.iq_drag import IQDrag
 # must come first.
 register_capability_tokens(
     "vendor.qblox.acquire",
-    "vendor.qblox.scope",
     "vendor.qblox.set_markers",
     "vendor.qblox.set_trigger",
     "vendor.qblox.wait_trigger",
@@ -210,25 +209,21 @@ token for each envelope the sequencers can sample.
 _FIELDS: frozenset[str] = frozenset(
     {
         "measure.fields.iq",
+        "measure.fields.raw",
         "measure.fields.state",
     },
 )
 """Measurement fields a qblox readout produces.
 
-The integrated IQ point and the thresholded state. [`Measure`][qprogram.operations.Measure] and
+All three core members of [`MeasurementField`][qprogram.MeasurementField]: the integrated IQ point, the raw ADC
+trace, and the thresholded state. [`Measure`][qprogram.operations.Measure] and
 [`acquire`][qprogram_qblox.QbloxNamespace.acquire] attach a ``measure.fields.<name>`` token per
 requested field and both target a bus, which is why the tokens are bus-level.
-
-``measure.fields.raw`` is left out, so a measurement that requests the raw trace fails validation
-with ``missing-capability``. The field promises one trace per measurement and per sweep point, and a
-QRM has a single scope that records one trace per module per run.
-[`scope`][qprogram_qblox.QbloxNamespace.scope] is how a program asks for that trace instead.
 """
 
 _VENDOR: frozenset[str] = frozenset(
     {
         "vendor.qblox.acquire",
-        "vendor.qblox.scope",
         "vendor.qblox.set_markers",
         "vendor.qblox.set_trigger",
         "vendor.qblox.wait_trigger",
@@ -238,7 +233,7 @@ _VENDOR: frozenset[str] = frozenset(
 )
 """The ``vendor.qblox.*`` operation tokens.
 
-Every operation this package ships carries a ``bus``, so all seven route to the bus slot. A bus-less
+Every operation this package ships carries a ``bus``, so all six route to the bus slot. A bus-less
 vendor operation would need its token on the platform slot instead.
 """
 

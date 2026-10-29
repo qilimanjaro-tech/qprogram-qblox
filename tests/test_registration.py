@@ -38,7 +38,6 @@ from qprogram_qblox.mixin import QbloxMixin
 from qprogram_qblox.namespace import QbloxNamespace
 from qprogram_qblox.operations import (
     Acquire,
-    Scope,
     SetAcquisitionRotation,
     SetAcquisitionThreshold,
     SetMarkers,
@@ -64,7 +63,6 @@ def test_all_operations_registered():
     """Every operation the namespace can append carries a serialization spec."""
     expected = {
         "acquire": Acquire,
-        "scope": Scope,
         "set_markers": SetMarkers,
         "set_trigger": SetTrigger,
         "wait_trigger": WaitTrigger,

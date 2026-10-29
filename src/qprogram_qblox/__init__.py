@@ -35,8 +35,8 @@ real-time and host-side execution:
   [`QbloxNamespace.set_markers`][qprogram_qblox.QbloxNamespace.set_markers],
   [`QbloxNamespace.set_trigger`][qprogram_qblox.QbloxNamespace.set_trigger],
   [`QbloxNamespace.wait_trigger`][qprogram_qblox.QbloxNamespace.wait_trigger]);
-- host-side-only operations ([`QbloxNamespace.scope`][qprogram_qblox.QbloxNamespace.scope],
-  [`QbloxNamespace.set_acquisition_threshold`][qprogram_qblox.QbloxNamespace.set_acquisition_threshold],
+- host-side-only operations
+  ([`QbloxNamespace.set_acquisition_threshold`][qprogram_qblox.QbloxNamespace.set_acquisition_threshold],
   [`QbloxNamespace.set_acquisition_rotation`][qprogram_qblox.QbloxNamespace.set_acquisition_rotation]), each a
   slow-control parameter write at execution time rather than a sequencer instruction.
 
@@ -82,25 +82,16 @@ A ``.qp`` file carrying qblox operations names the vendor in its header::
       qblox.set_markers "drive_q0" "0001"
 """
 
-from __future__ import annotations
-
 from importlib.metadata import PackageNotFoundError, version
-from typing import TYPE_CHECKING
 
 from qprogram.qprogram import QProgram as _BaseQProgram
-from qprogram.serialization._specs import (
-    _bind_signature_tokens,
-    _construct_operation,
-    make_measurement_op_parse,
-    measurement_op_serialize,
-)
+from qprogram.serialization._specs import make_measurement_op_parse, measurement_op_serialize
 from qprogram.serialization.registry import register_vendor_operation, register_vendor_version
 
 from qprogram_qblox.mixin import QbloxMixin
 from qprogram_qblox.namespace import QbloxNamespace
 from qprogram_qblox.operations import (
     Acquire,
-    Scope,
     SetAcquisitionRotation,
     SetAcquisitionThreshold,
     SetMarkers,
@@ -109,10 +100,6 @@ from qprogram_qblox.operations import (
 )
 from qprogram_qblox.profiles import QBLOX_DEFAULT_V1
 from qprogram_qblox.profiles import _register as _register_qblox_profile
-
-if TYPE_CHECKING:
-    from qprogram.operations.operation import Operation
-    from qprogram.serialization._specs import ParseContext
 
 # Resolve our own package version once. This is the single source of truth for the qblox vendor
 # protocol version: parsers check that a file's `require qblox <major.minor>` is compatible with
@@ -131,38 +118,9 @@ _BaseQProgram.register_vendor("qblox", QbloxNamespace)
 # The .qp parser checks `require qblox <x.y>` against it.
 register_vendor_version("qblox", __version__)
 
-
-def _parse_scope(tokens: list[str], ctx: ParseContext) -> Operation:
-    """Parse a ``qblox.scope`` line, which has to carry the scope's name.
-
-    The core measurement callback names an unnamed line from the ``m0``, ``m1``, ... counter, which
-    would rename the acquisitions after it, so an unnamed scope is refused instead. The writer always
-    emits ``name=``; only a hand-written line can leave it out. The name is otherwise read like any
-    measurement's: from ``name="..."``, or from a quoted token in the ``handle`` slot.
-
-    Args:
-        tokens (list[str]): Tokens of the statement, the ``qblox.scope`` keyword already consumed.
-        ctx (ParseContext): The parser, which resolves the name to the program's shared handle.
-
-    Returns:
-        The [`Scope`][qprogram_qblox.Scope] node the line spells.
-
-    Raises:
-        ParseError: If the line names no scope, or if an argument is rejected by
-            [`Scope`][qprogram_qblox.Scope].
-    """
-    kwargs = _bind_signature_tokens(Scope, tokens, ctx)
-    name = kwargs.pop("name", kwargs.get("handle"))
-    if not isinstance(name, str):
-        msg = 'qblox.scope needs its name as a quoted string, as in name="scope0"'
-        raise ctx.parse_error(msg)
-    kwargs["handle"] = ctx.get_or_create_handle(name)
-    return _construct_operation(Scope, kwargs, ctx)
-
-
 # --- Step 3: Register operations with the .qp serializer ---
-# All but `acquire` and `scope` use the default signature-driven serialize/parse pair. Those two are
-# measurement operations, so they need the measurement callbacks that carry the handle name across
+# All but `acquire` use the default signature-driven serialize/parse pair. `acquire` is a
+# measurement operation, so it needs the measurement callbacks that carry the handle name across
 # the wire as a `name="..."` kwarg.
 register_vendor_operation(
     "qblox",
@@ -171,7 +129,6 @@ register_vendor_operation(
     serialize=measurement_op_serialize,
     parse=make_measurement_op_parse(Acquire),
 )
-register_vendor_operation("qblox", "scope", Scope, serialize=measurement_op_serialize, parse=_parse_scope)
 register_vendor_operation("qblox", "set_markers", SetMarkers)
 register_vendor_operation("qblox", "set_trigger", SetTrigger)
 register_vendor_operation("qblox", "wait_trigger", WaitTrigger)
@@ -197,7 +154,6 @@ __all__ = [
     "QProgram",
     "QbloxMixin",
     "QbloxNamespace",
-    "Scope",
     "SetAcquisitionRotation",
     "SetAcquisitionThreshold",
     "SetMarkers",
