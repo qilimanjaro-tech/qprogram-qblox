@@ -4,7 +4,7 @@
 
 Qblox extensions for [QProgram](https://github.com/qilimanjaro-tech/qprogram), a Python DSL for pulse-level quantum experiments.
 
-The core DSL knows nothing about any instrument. This package teaches it about the Qblox cluster. It adds six operations that the portable language does not cover, a capability profile that says what QCM and QRM sequencers accept, and `.qp` serialization for everything it adds. Importing the package is the whole activation step.
+The core DSL knows nothing about any instrument. This package teaches it about the Qblox cluster. It adds seven operations that the portable language does not cover, a capability profile that says what QCM and QRM sequencers accept, and `.qp` serialization for everything it adds. Importing the package is the whole activation step.
 
 ## Installation
 
@@ -53,11 +53,11 @@ population = result.get(m0, field=qp.MeasurementField.STATE)
 print(population.dims, population.shape)  # ('angle',) (21,)
 ```
 
-`qp.simulate` is the reference software executor that ships with the core package. It runs the qblox operations generically: `qblox.acquire` produces measurement records, the rest have no effect on the simulated outcome. A Qblox platform is a drop-in for the same call and lowers each operation onto real sequencers.
+`qp.simulate` is the reference software executor that ships with the core package. It runs the qblox operations generically: `qblox.acquire` and `qblox.scope` produce measurement records, the rest have no effect on the simulated outcome. A Qblox platform is a drop-in for the same call and lowers each operation onto real sequencers.
 
 ## What you get
 
-- **Six operations under `program.qblox`.** `acquire` reads a bus without playing a readout pulse. `set_markers` and `set_trigger` drive the digital outputs, `wait_trigger` waits on a digital input. `set_acquisition_threshold` and `set_acquisition_rotation` configure thresholded acquisition, and take effect off the sequencer as slow-control parameter writes at execution time.
+- **Seven operations under `program.qblox`.** `acquire` reads a bus without playing a readout pulse, and `scope` records the raw ADC trace of the bus's QRM for the run. `set_markers` and `set_trigger` drive the digital outputs, `wait_trigger` waits on a digital input. `set_acquisition_threshold` and `set_acquisition_rotation` configure thresholded acquisition, and take effect off the sequencer as slow-control parameter writes at execution time.
 - **Typed or dynamic access.** `qprogram_qblox.QProgram` has `.qblox` typed for autocomplete, `QbloxMixin` composes with other vendor mixins, and the plain `qprogram.QProgram` gets the same namespace at runtime once this package is imported.
 - **A capability profile.** `QBLOX_DEFAULT_V1` declares the operations, waveforms, measurement fields, and limits of a qblox-driven bus, plus the two constraints the hardware imposes: an arbitrary-valued sweep cannot drive a wait duration, and sweeping an `IQDrag` sigma forces its loop to iterate host-side.
 - **Round-tripping `.qp` files.** Every operation serializes as `qblox.<name> <args>` and reloads to a structurally equal program. Files carry `require qblox 0.2`, which the parser checks against the installed version.

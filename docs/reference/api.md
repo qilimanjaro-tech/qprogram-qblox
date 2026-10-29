@@ -18,13 +18,14 @@ Neither is needed at runtime: importing `qprogram_qblox` registers the namespace
 
 ## Vendor namespace
 
-The builder surface. Each method appends one AST node to the program's current block, so the methods obey the same nesting as the core builder calls around them. `acquire` returns a `MeasurementHandle`; the rest return `None`.
+The builder surface. Each method appends one AST node to the program's current block, so the methods obey the same nesting as the core builder calls around them. `acquire` and `scope` return a `MeasurementHandle`; the rest return `None`.
 
 ::: qprogram_qblox.QbloxNamespace
     options:
       show_root_full_path: false
       members:
         - acquire
+        - scope
         - set_markers
         - set_trigger
         - wait_trigger
@@ -38,6 +39,10 @@ The AST nodes the namespace methods append. They are structural value objects: t
 Construct them directly for tests and program transformations; build programs through the namespace.
 
 ::: qprogram_qblox.Acquire
+    options:
+      show_root_full_path: false
+
+::: qprogram_qblox.Scope
     options:
       show_root_full_path: false
 

@@ -8,11 +8,12 @@ program.qblox.<operation>(...)
 
 Importing `qprogram_qblox` registers the namespace, so the call works on any `QProgram` instance. The `QProgram` re-exported from this package is the same class with a typed `.qblox` property, which is what gives editors autocomplete. See [Getting started](../getting-started.md) for the two import styles.
 
-There are six operations. Four are sequencer instructions; two are host-side parameter sets.
+There are seven operations. Four are sequencer instructions; three are host-side parameter sets.
 
 | Operation                   | Kind                    | Lowers to                                                 |
 |-----------------------------|-------------------------|-----------------------------------------------------------|
 | `acquire`                   | sequencer instruction   | An acquisition on the readout module's sequencer          |
+| `scope`                     | host-side parameter set | The QRM scope settings before the sequence starts, and the trace read back after it |
 | `set_markers`               | sequencer instruction   | A write to the sequencer's marker output register         |
 | `set_trigger`               | sequencer instruction   | A trigger pulse on the sequencer's trigger outputs        |
 | `wait_trigger`              | sequencer instruction   | A blocking wait on the sequencer's trigger input          |
@@ -23,7 +24,7 @@ QProgram itself draws no line between the two kinds. Both serialize the same way
 
 ## Conventions
 
-All six operations take `bus` as their first argument, and it is their only bus attribute. So each one routes to the capability slot of the bus it names, never to the platform slot. A schema-backed `BusRef` is checked against the program's schema; a plain string is not checked at all.
+All seven operations take `bus` as their first argument, and it is their only bus attribute. So each one routes to the capability slot of the bus it names, never to the platform slot. A schema-backed `BusRef` is checked against the program's schema; a plain string is not checked at all.
 
 Every snippet below assumes this preamble:
 
@@ -69,19 +70,21 @@ program = QProgram(schema=schema)
 handle = program.qblox.acquire(
     q[0].readout,
     weights,
-    fields=(qp.MeasurementField.IQ, qp.MeasurementField.RAW),
+    fields=(qp.MeasurementField.IQ, qp.MeasurementField.STATE),
 )
 
 program.body.elements[0].fields
-# ('iq', 'raw')
+# ('state', 'iq')
 ```
 
 On the wire the requested fields become a bracket list, omitted when the acquisition wants only the default `iq`. That call serializes to:
 
 ```
 body:
-  qblox.acquire q[0].readout IQPair(I=Square(amplitude=1.0, duration=200), Q=Square(amplitude=1.0, duration=200)) name="q0/readout/m0" fields=["iq", "raw"]
+  qblox.acquire q[0].readout IQPair(I=Square(amplitude=1.0, duration=200), Q=Square(amplitude=1.0, duration=200)) name="q0/readout/m0" fields=["state", "iq"]
 ```
+
+A qblox bus produces `iq` and `state`. An `acquire` or a core `measure` that asks for `raw` still builds and serializes, but `qblox-default-v1` does not accept the field, so validating it against a qblox bus is a `missing-capability` error ([Capabilities and profiles](capabilities.md#measurement-fields-2-tokens) shows the diagnostic). The raw trace comes from the module's scope instead, through `scope` below.
 
 The handle reads results back like any other measurement. Here the mock model's excited-state probability tracks the swept amplitude, averaged over 200 shots per point:
 
@@ -111,10 +114,52 @@ Capability tokens: `vendor.qblox.acquire`, `waveform.iq`, one `measure.fields.<f
 
 ```python
 program = QProgram(schema=schema)
-program.qblox.acquire(q[0].readout, weights, fields=(qp.MeasurementField.IQ, qp.MeasurementField.RAW))
+program.qblox.acquire(q[0].readout, weights, fields=(qp.MeasurementField.IQ, qp.MeasurementField.STATE))
 sorted(program.body.elements[0].required_capabilities())
-# ['measure.fields.iq', 'measure.fields.raw', 'vendor.qblox.acquire', 'waveform.iq', 'waveform.iq_pair']
+# ['measure.fields.iq', 'measure.fields.state', 'vendor.qblox.acquire', 'waveform.iq', 'waveform.iq_pair']
 ```
+
+## `scope(bus, *, averaging=True, trigger_level=None, name=None)`
+
+Record the raw ADC trace of the QRM that drives a readout bus. The scope records the module's two inputs before any sequencer processing, so the trace is not NCO-demodulated, not weighted, and carries every tone on those inputs, including other readout buses multiplexed on the same module.
+
+| Argument        | Meaning                                                                              |
+|-----------------|--------------------------------------------------------------------------------------|
+| `bus`           | Readout bus whose acquisitions trigger the scope. Its QRM is the module scoped.       |
+| `averaging`     | `True` adds every trigger into the scope buffer and divides by their count. `False` overwrites the buffer on each trigger, so the trace is the last trigger only. Applies to both input paths. |
+| `trigger_level` | `None` triggers on the acquisitions of the bus's sequencer. A number in `[-1, 1]` triggers when the input crosses that level instead, on both input paths. |
+| `name`          | Explicit measurement name. Auto-allocated when omitted.                               |
+
+A QRM has one scope, and it records one trace per run rather than one per measurement. That is why the trace comes from its own operation and not from the `raw` field of a measurement. The call is a setting for the whole run, wherever it sits in the program: with the default trigger, every `acquire` on `bus` triggers the scope, so the trace averages over all of them and over every sweep point around them. `qp.simulate` does not model that: a scope placed inside a sweep comes back with one trace per sweep point, with the sweep's dimensions in front of `("time", "IQ")`. Declare the scope at the top of the program, as below, and the simulated result has the shape the QRM records.
+
+It returns a `MeasurementHandle`, and `result.get(handle, field="raw")` reads the trace back with dims `("time", "IQ")`: `time` in nanoseconds from the start of each acquisition, and `IQ` the module's two input paths, not a demodulated pair. Scopes are named `scope0`, `scope1`, ... in declaration order, on a counter of their own, so adding a scope leaves the acquisitions' names where they were:
+
+```python
+program = QProgram(label="raw-trace", schema=schema)
+scope = program.qblox.scope(q[0].readout)
+with program.average(1000):
+    program.play(q[0].readout, "readout_pulse")
+    m = program.qblox.acquire(q[0].readout, "weights")
+
+print(scope.name, m.name)
+# scope0 q0/readout/m0
+```
+
+```
+body:
+  qblox.scope q[0].readout name="scope0"
+  average 1000:
+    play q[0].readout "readout_pulse"
+    qblox.acquire q[0].readout "weights" name="q0/readout/m0"
+```
+
+When the program is built in another module and the handle is out of reach, read the trace by name instead: `result.get("scope0", field="raw")`. Pass `name=` to choose the name, for example when a program scopes several QRMs.
+
+Three things are checked at the call, and each raises `ValidationError`: a `trigger_level` outside `[-1, 1]`, a bus the program already scopes, and a `name` another measurement already uses. What depends on the wiring is the platform's to check: that the bus is on a QRM, that no two scoped buses share one, and that a scope triggered by the sequencer has an acquisition on its bus to trigger it. The bus check runs only at the call, so a program loaded from a `.qp` file or remapped with `rebind` can still scope one bus twice, and the platform's check catches that too.
+
+The writer always emits `name=`. A hand-written `qblox.scope` line without a name is refused on load, rather than named from the `m0`, `m1`, ... counter of the acquisitions.
+
+Capability token: `vendor.qblox.scope`. The node does not require `measure.fields.raw`, so the profile leaving that field out does not block the scope.
 
 ## `set_markers(bus, mask)`
 
@@ -297,7 +342,7 @@ Only two arguments in this package accept an `Expression`:
 | `set_acquisition_threshold` | `value`  | `float \| Expression` |
 | `set_acquisition_rotation`  | `angle`  | `float \| Expression` |
 
-Everything else is a build-time constant. `acquire`'s `weights` is a waveform or an alias, `set_markers`'s `mask` is a string, and the `duration`, `outputs`, `port` and `position` arguments of the trigger operations are typed `int`, `list[int] | int | None`, `int | None` and `str`. Sweeping a pulse parameter instead is the usual answer: core `play` takes waveforms whose parameters accept expressions.
+Everything else is a build-time constant. `acquire`'s `weights` is a waveform or an alias, `scope`'s `averaging` and `trigger_level` are a `bool` and a `float | None`, `set_markers`'s `mask` is a string, and the `duration`, `outputs`, `port` and `position` arguments of the trigger operations are typed `int`, `list[int] | int | None`, `int | None` and `str`. Sweeping a pulse parameter instead is the usual answer: core `play` takes waveforms whose parameters accept expressions.
 
 The two expression-bearing operations report their expression node kinds in `required_capabilities()`, which is what lets a platform declare that it cannot sweep them. Nothing enforces the type annotations at runtime, so a `Variable` passed to `set_trigger(duration=...)` is accepted and serialized, but reports no `expr.*` token, and a platform gets no signal to reject it.
 
@@ -306,13 +351,14 @@ The two expression-bearing operations report their expression node kinds in `req
 | Node                      | Tokens                                                                       |
 |---------------------------|------------------------------------------------------------------------------|
 | `Acquire`                 | `vendor.qblox.acquire`, `waveform.iq`, `measure.fields.<field>` per field, plus `waveform.alias` or the weights class token |
+| `Scope`                   | `vendor.qblox.scope`                                                          |
 | `SetMarkers`              | `vendor.qblox.set_markers`                                                    |
 | `SetTrigger`              | `vendor.qblox.set_trigger`                                                    |
 | `WaitTrigger`             | `vendor.qblox.wait_trigger`                                                   |
 | `SetAcquisitionThreshold` | `vendor.qblox.set_acquisition_threshold`, plus the `expr.*` tokens of `value`  |
 | `SetAcquisitionRotation`  | `vendor.qblox.set_acquisition_rotation`, plus the `expr.*` tokens of `angle`   |
 
-All six `vendor.qblox.*` tokens are in `qblox-default-v1`, along with the waveform and measurement-field tokens `Acquire` needs, so a bus wired to that profile accepts every operation on this page. [Capabilities and profiles](capabilities.md) covers the profile and the two constraints it declares.
+All seven `vendor.qblox.*` tokens are in `qblox-default-v1`, along with the waveform tokens `Acquire` needs and the `iq` and `state` field tokens, so a bus wired to that profile accepts every operation on this page as long as no measurement asks for `raw`. [Capabilities and profiles](capabilities.md) covers the profile and the two constraints it declares.
 
 ## See also
 

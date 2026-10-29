@@ -1,6 +1,6 @@
 # Lowering onto hardware
 
-This page is for the person writing the platform: the code that takes a validated `QProgram` and drives real Qblox instruments with it. It covers what each module of this package owns, what runs when the package is imported, what a platform has to do with each of the six operations, which conversions the DSL leaves to the platform on purpose, and how the capability profile limits what a platform may accept.
+This page is for the person writing the platform: the code that takes a validated `QProgram` and drives real Qblox instruments with it. It covers what each module of this package owns, what runs when the package is imported, what a platform has to do with each of the seven operations, which conversions the DSL leaves to the platform on purpose, and how the capability profile limits what a platform may accept.
 
 The core DSL's [building a vendor extension](https://qilimanjaro-tech.github.io/qprogram/developer/vendor-extensions.html) page is the general template. This page is the qblox half of it.
 
@@ -9,7 +9,7 @@ The core DSL's [building a vendor extension](https://qilimanjaro-tech.github.io/
 ```
 src/qprogram_qblox/
 ├── __init__.py      # the registration calls, __version__, the pre-combined QProgram
-├── operations.py    # six Operation subclasses: the AST nodes
+├── operations.py    # seven Operation subclasses: the AST nodes
 ├── namespace.py     # QbloxNamespace: one typed method per operation
 ├── mixin.py         # QbloxMixin: the .qblox property, for autocomplete
 └── profiles.py      # capability tokens, QBLOX_DEFAULT_V1, two predicates
@@ -17,11 +17,11 @@ src/qprogram_qblox/
 
 | Module          | What it owns                                                                                                                                                                                    |
 |-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `operations.py` | The six node classes. Each holds its arguments as plain attributes and declares the capability tokens that instance needs. This is the module a compiler reads.                                   |
-| `namespace.py`  | The builder surface. One typed method per operation, each constructing a node and handing it to `VendorNamespace._append` (or `_append_measurement` for `acquire`). No logic beyond that.          |
+| `operations.py` | The seven node classes. Each holds its arguments as plain attributes and declares the capability tokens that instance needs. This is the module a compiler reads.                                 |
+| `namespace.py`  | The builder surface. One typed method per operation, each constructing a node and handing it to `VendorNamespace._append` (or `_append_measurement` for `acquire` and `scope`). The only logic is `scope`'s: its `scope0`, `scope1`, ... names and its check that no bus is scoped twice. |
 | `mixin.py`      | The `.qblox` property, which instantiates `QbloxNamespace` once and caches it on the program instance. Autocomplete only; the runtime lookup works without it.                                    |
 | `profiles.py`   | The `vendor.qblox.*` token registrations, the `QBLOX_DEFAULT_V1` profile, and the two predicates that encode hardware constraints.                                                               |
-| `__init__.py`   | The glue: the four registration steps, the package version, and `QProgram`, the pre-combined class with `.qblox` typed.                                                                              |
+| `__init__.py`   | The glue: the four registration steps, the parse callback for `qblox.scope`, the package version, and `QProgram`, the pre-combined class with `.qblox` typed.                                      |
 
 Imports run one way. `operations.py` and `profiles.py` import from `qprogram` and nothing else in this package; `namespace.py` imports the operations; `mixin.py` imports the namespace; `__init__.py` imports all four. A compiler that only wants the node classes can import `qprogram_qblox.operations` directly, though it then misses the registration side effects described below.
 
@@ -35,10 +35,10 @@ Importing `qprogram_qblox` is the activation step, and it is the only one. `__in
 
 1. **Runtime namespace.** `QProgram.register_vendor("qblox", QbloxNamespace)` puts the class in the core builder's vendor registry, so `program.qblox` resolves through `QProgram.__getattr__` on any program, the plain base class included.
 2. **Protocol version.** `register_vendor_version("qblox", __version__)` records the version, which `__init__.py` reads from the installed distribution metadata. This is the number the parser checks a file's `require qblox 0.2` line against: the line may ask for this version or any earlier one, and an earlier one whose spelling has since changed is repaired by the rewrites `register_vendor_migration` records.
-3. **Operations.** One `register_vendor_operation("qblox", name, cls)` call per class. `acquire` additionally passes the core measurement callbacks, so its handle serializes as a `name="..."` keyword like every other measurement.
+3. **Operations.** One `register_vendor_operation("qblox", name, cls)` call per class. `acquire` and `scope` additionally pass measurement callbacks, so their handles serialize as a `name="..."` keyword like every other measurement. `acquire` takes the core pair; `scope` takes the core writer and a parser of its own, which refuses a line without a name instead of naming it from the acquisitions' `m0`, `m1`, ... counter.
 4. **Profile.** `_register()` from `profiles.py` puts `QBLOX_DEFAULT_V1` on the global profile registry, where `CompilerCapabilities.from_profile` finds it by name.
 
-One more registration runs before all four, as a side effect of importing `profiles.py` at the top of `__init__.py`: `register_capability_tokens` adds the six `vendor.qblox.*` tokens. It has to run before the profile object is constructed, because `Profile.__post_init__` rejects a capability set naming a token nobody registered. That is the check that turns a typo into an import error instead of a silent validation miss.
+One more registration runs before all four, as a side effect of importing `profiles.py` at the top of `__init__.py`: `register_capability_tokens` adds the seven `vendor.qblox.*` tokens. It has to run before the profile object is constructed, because `Profile.__post_init__` rejects a capability set naming a token nobody registered. That is the check that turns a typo into an import error instead of a silent validation miss.
 
 The typed mixin registers nothing. Nothing in `mixin.py` runs at import beyond the class definition, because `.qblox` is a property that builds the namespace on first access.
 
@@ -68,7 +68,7 @@ vendor:    0.2.0
 acquire:   Acquire
 set_markers name: ('qblox', 'set_markers')
 profile:   qblox-default-v1
-tokens:    ['vendor.qblox.acquire', 'vendor.qblox.set_acquisition_rotation', 'vendor.qblox.set_acquisition_threshold', 'vendor.qblox.set_markers', 'vendor.qblox.set_trigger', 'vendor.qblox.wait_trigger']
+tokens:    ['vendor.qblox.acquire', 'vendor.qblox.scope', 'vendor.qblox.set_acquisition_rotation', 'vendor.qblox.set_acquisition_threshold', 'vendor.qblox.set_markers', 'vendor.qblox.set_trigger', 'vendor.qblox.wait_trigger']
 namespace: QbloxNamespace
 ```
 
@@ -81,19 +81,22 @@ A platform reads the AST, not the text. `program.body.walk()` yields every node 
 ```python
 import qprogram as qp
 from qprogram_qblox import QProgram
-from qprogram_qblox.operations import Acquire, SetMarkers, SetTrigger, WaitTrigger
+from qprogram_qblox.operations import Acquire, Scope, SetMarkers, SetTrigger, WaitTrigger
 
 schema = qp.BusSchema.transmon()
 q = schema.q
 
 program = QProgram(schema=schema)
+program.qblox.scope(q[0].readout, trigger_level=0.1)
 program.qblox.set_markers(q[0].drive, "0001")
 program.qblox.set_trigger(q[0].drive, duration=40, outputs=[1, 2], position="end")
 program.qblox.wait_trigger(q[0].drive, duration=100, port=1)
-program.qblox.acquire(q[0].readout, "readout_weights", fields=("iq", "raw"))
+program.qblox.acquire(q[0].readout, "readout_weights", fields=("iq", "state"))
 
 for node in program.body.walk():
-    if isinstance(node, SetMarkers):
+    if isinstance(node, Scope):
+        print("scope       ", node.bus, node.handle.name, node.averaging, node.trigger_level)
+    elif isinstance(node, SetMarkers):
         print("set_markers ", node.bus, node.mask)
     elif isinstance(node, SetTrigger):
         print("set_trigger ", node.bus, node.duration, node.outputs, node.position)
@@ -104,10 +107,11 @@ for node in program.body.walk():
 ```
 
 ```text
+scope        q0/readout scope0 True 0.1
 set_markers  q0/drive 0001
 set_trigger  q0/drive 40 [1, 2] end
 wait_trigger q0/drive 100 1
-acquire      q0/readout readout_weights q0/readout/m0 ('iq', 'raw')
+acquire      q0/readout readout_weights q0/readout/m0 ('state', 'iq')
 ```
 
 Three things come from the core `Operation` base and need no per-class code: `node.buses()`, `node.waveforms()` and `node.variables()`, driven by the `BUS_ATTRS` and `WAVEFORM_ATTRS` class attributes. Use them for the passes that do not care which operation they are looking at: allocating sequencers per bus, collecting waveforms to upload, or finding the variables a loop has to bind.
@@ -119,6 +123,7 @@ Two things to do before lowering anything. Call `program.expand()` if `program.f
 | Operation                          | Wire form                                                    | What the platform does                                                                        |
 |------------------------------------|--------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
 | `acquire`                          | `qblox.acquire q[0].readout "weights" name="q0/readout/m0"`   | Arm an acquisition on the bus's sequencer. Play nothing.                                       |
+| `scope`                            | `qblox.scope q[0].readout name="scope0"`                     | Set the scope of the bus's QRM before the run, and read its trace back after it. No sequencer instruction. |
 | `set_markers`                      | `qblox.set_markers "drive_q0" "0001"`                        | Drive the four marker outputs of that bus's module with the mask.                               |
 | `set_trigger`                      | `qblox.set_trigger q[0].drive 40 outputs=[1, 2]`             | Assert the named trigger outputs for the duration, at the requested edge of the operation.      |
 | `wait_trigger`                     | `qblox.wait_trigger q[0].drive 100 port=1`                   | Block the sequencer until a trigger arrives on the port, giving up after the timeout.           |
@@ -133,8 +138,17 @@ Keyword arguments appear on the wire only when they differ from their default, s
 
 - `weights` is either an `IQWaveform` to upload as integration weights or a `str` naming one. A name is a promise the caller keeps, not the platform: `program.with_waveforms(library)` resolves names against a `WaveformLibrary` before execution, and a platform receives the resolved program. A `str` still reaching the platform is a program that was never bound.
 - `handle.name` is the key of the record in the result. Keep it: it is what `QProgramResult.get(handle)` looks up, and it is the same name the `.qp` file carries.
-- `fields` is a tuple of field names in canonical order (`state`, `iq`, `raw`), deduplicated at construction. The platform produces exactly those arrays. `iq` is the default, and the primary array (`MeasurementResult.data`) is `iq` when requested and the first field in canonical order otherwise.
+- `fields` is a tuple of field names in canonical order (`state`, `iq`, `raw`), deduplicated at construction. The platform produces exactly those arrays. `iq` is the default, and the primary array (`MeasurementResult.data`) is `iq` when requested and the first field in canonical order otherwise. `raw` does not reach a platform that validates against `qblox-default-v1`, which leaves `measure.fields.raw` out; the raw trace comes from `scope`.
 - The node carries no integration length and no acquisition index. Integration length is bus configuration, so it reaches the platform through the core `program.set_parameter(bus, name, value)` under whatever name the platform exposes, or through the platform's own setup, not through this node. Acquisition indices are the platform's bookkeeping.
+
+### `scope`
+
+`Scope(bus, handle, averaging=True, trigger_level=None)` is a `MeasurementOperation` whose `fields` is always `("raw",)`, and it emits no sequencer instruction. It configures the scope of the QRM that drives `bus` for the whole run, wherever it sits in the program, and its handle names the trace the platform reads back.
+
+- Before the run, select the bus's sequencer as the module's scope trigger (`scope_acq_sequencer_select`), set `scope_acq_avg_mode_en_path0` and `_path1` from `averaging`, and set the trigger mode on both paths with `scope_acq_trigger_mode_path0` and `_path1`: `sequencer` when `trigger_level` is `None`, and `level` otherwise, with `scope_acq_trigger_level_path0` and `_path1` set to it.
+- After the run, store the scope acquisition and record it under `handle.name`, field `raw`, dims `("time", "IQ")`: one trace for the run, with no sweep dimensions, however many acquisitions triggered it. `time` counts nanoseconds from the start of each acquisition, and `IQ` is the module's two input paths: the trace is taken before the NCO, so it is not demodulated. `qp.simulate` differs here, since it gives a scope inside a sweep one trace per sweep point.
+- The node checks only what it can know on its own: `trigger_level` is `None` or in `[-1, 1]`, and the namespace refuses a second scope on the same bus. That refusal runs only in the builder: a program loaded with `qp.loads` or remapped with `rebind` can still scope one bus twice, so the platform's module check must count the same bus twice as two scoped buses sharing a module. The rest depends on the wiring and is the platform's to check before the run: the bus is on a QRM or QRM-RF, no two scoped buses share a module, and a scope in sequencer mode has an acquisition on its bus to trigger it. More than one acquisition on the bus, or a sweep around one, averages every trigger into the trace, which is worth a warning.
+- `required_capabilities()` returns `vendor.qblox.scope` alone. The inherited `measure.fields.raw` is left out, since the profile does not list it and a scope that required it could never validate.
 
 ### `set_markers`
 
@@ -267,7 +281,7 @@ Which loop that is matters. If the platform steps the sweep from the host, one p
 
 `QBLOX_DEFAULT_V1` is the bus-level answer to "will this program run here?". It declares four things:
 
-- **Capabilities.** The tokens a qblox-driven bus accepts: nine core bus operations, thirteen waveform tokens, the three measurement fields, and the six `vendor.qblox.*` operations. A program using a token the set omits gets one `missing-capability` error per use site.
+- **Capabilities.** The tokens a qblox-driven bus accepts: nine core bus operations, thirteen waveform tokens, the `iq` and `state` measurement fields, and the seven `vendor.qblox.*` operations. A program using a token the set omits gets one `missing-capability` error per use site, which is how a measurement asking for `raw` is turned away.
 - **Limits.** `min_wait_duration_ns = 4`, checked by the core validator.
 - **Predicates.** Two, described below.
 - **Vendor versions.** `{"qblox": (0, 1, 0)}`, informational: a record of the extension version the profile was written against.
@@ -473,7 +487,7 @@ SetIntegrationLength
 True
 ```
 
-An operation with a shape the default reflection cannot express, such as a measurement handle or a variadic argument list, passes explicit `serialize=` and `parse=` callbacks to `register_vendor_operation`. `acquire` is the worked example.
+An operation with a shape the default reflection cannot express, such as a measurement handle or a variadic argument list, passes explicit `serialize=` and `parse=` callbacks to `register_vendor_operation`. `acquire` is the worked example with the core measurement callbacks, and `scope` the one with a parse callback of its own.
 
 ### The tests that come with it
 

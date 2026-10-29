@@ -101,17 +101,31 @@ for diagnostic in diagnostics:
 # [error] missing-capability: 'Play' requires capability 'waveform.tukey' which is not supported by 'qblox-default-v1' (rt) (at body[0])
 ```
 
-### Measurement fields, 3 tokens
+### Measurement fields, 2 tokens
 
-`measure.fields.iq`, `measure.fields.raw`, `measure.fields.state`.
+`measure.fields.iq`, `measure.fields.state`.
 
-The complete core vocabulary. A qblox readout path can return the integrated IQ point, the raw ADC trace, and the thresholded state, so all three are supported. `measure.fields.state` is what makes a conditional on `handle.state` validate on a qblox bus, and it is the field `set_acquisition_threshold` and `set_acquisition_rotation` exist to calibrate.
+A qblox readout returns the integrated IQ point and the thresholded state. `measure.fields.state` is what makes a conditional on `handle.state` validate on a qblox bus, and it is the field `set_acquisition_threshold` and `set_acquisition_rotation` exist to calibrate.
 
-### Vendor operations, 6 tokens
+`measure.fields.raw`, the third core field, is left out. It promises one raw trace per measurement and per sweep point, and a QRM has a single scope that records one trace per module per run. A `measure` or an `acquire` that asks for it is a hard error:
 
-`vendor.qblox.acquire`, `vendor.qblox.set_markers`, `vendor.qblox.set_trigger`, `vendor.qblox.wait_trigger`, `vendor.qblox.set_acquisition_threshold`, `vendor.qblox.set_acquisition_rotation`.
+```python
+program = QProgram(schema=schema)
+program.qblox.acquire(q[0].readout, "weights", fields=(qp.MeasurementField.IQ, qp.MeasurementField.RAW))
 
-One per operation in the namespace. All six qblox operations declare `bus` as their only bus attribute, so all six route to the bus slot, which is why their tokens live here rather than on the platform profile. [Operations](operations.md) documents each one.
+diagnostics, _ = qp.validate(program, caps)
+for diagnostic in diagnostics:
+    print(diagnostic)
+# [error] missing-capability: 'Acquire' requires capability 'measure.fields.raw' which is not supported by 'qblox-default-v1' (rt) (at body[0])
+```
+
+The trace comes from the `scope` operation instead, documented in [Operations](operations.md). Its node requires `vendor.qblox.scope` and not `measure.fields.raw`, so leaving the field out does not block it.
+
+### Vendor operations, 7 tokens
+
+`vendor.qblox.acquire`, `vendor.qblox.scope`, `vendor.qblox.set_markers`, `vendor.qblox.set_trigger`, `vendor.qblox.wait_trigger`, `vendor.qblox.set_acquisition_threshold`, `vendor.qblox.set_acquisition_rotation`.
+
+One per operation in the namespace. All seven qblox operations declare `bus` as their only bus attribute, so all seven route to the bus slot, which is why their tokens live here rather than on the platform profile. [Operations](operations.md) documents each one.
 
 The tokens are registered with the core `CAPABILITY_REGISTRY` before the profile is constructed, because `Profile.__post_init__` rejects a token it has never seen.
 
