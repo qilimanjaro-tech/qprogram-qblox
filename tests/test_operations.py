@@ -28,6 +28,7 @@ from qprogram.waveforms import IQPair, Square
 
 from qprogram_qblox.operations import (
     Acquire,
+    Scope,
     SetAcquisitionRotation,
     SetAcquisitionThreshold,
     SetMarkers,
@@ -137,6 +138,63 @@ def test_acquire_required_capabilities_unregistered_weights_class():
         "waveform.iq",
         "measure.fields.iq",
     }
+
+
+# ---------------------------------------------------------------------------
+# Scope
+# ---------------------------------------------------------------------------
+
+
+def test_scope_construct_defaults():
+    op = Scope("readout", handle=MeasurementHandle("scope0"))
+    assert op.bus == "readout"
+    assert op.name == "scope0"
+    assert op.averaging is True
+    assert op.trigger_level is None
+
+
+def test_scope_construct_with_all_kwargs():
+    op = Scope("readout", handle=MeasurementHandle("scope0"), averaging=False, trigger_level=0.25)
+    assert op.averaging is False
+    assert op.trigger_level == pytest.approx(0.25)
+
+
+def test_scope_fields_are_always_raw():
+    """The trace is the only thing a scope records, so ``fields`` is fixed rather than an argument."""
+    assert Scope("readout", handle=MeasurementHandle("scope0")).fields == ("raw",)
+
+
+@pytest.mark.parametrize("level", [-1, -1.0, 0, 0.5, 1.0])
+def test_scope_trigger_level_in_range_accepted(level):
+    op = Scope("readout", handle=MeasurementHandle("scope0"), trigger_level=level)
+    assert op.trigger_level == level
+
+
+@pytest.mark.parametrize("level", [1.01, -1.5, 2, math.nan, math.inf, True, "0.5"])
+def test_scope_trigger_level_outside_range_rejected(level):
+    with pytest.raises(ValidationError, match=r"trigger_level must be None or a number in \[-1, 1\]"):
+        Scope("readout", handle=MeasurementHandle("scope0"), trigger_level=level)
+
+
+def test_scope_introspection():
+    op = Scope("bus", handle=MeasurementHandle("scope0"))
+    assert list(op.buses()) == ["bus"]
+    assert list(op.waveforms()) == []
+    assert list(op.variables()) == []
+
+
+def test_scope_structural_equality():
+    a = Scope("bus", handle=MeasurementHandle("scope0"), trigger_level=0.1)
+    b = Scope("bus", handle=MeasurementHandle("scope0"), trigger_level=0.1)
+    assert a == b
+    assert hash(a) == hash(b)
+    assert a != Scope("bus", handle=MeasurementHandle("scope0"), trigger_level=0.2)
+
+
+def test_scope_required_capabilities_leave_out_the_raw_field():
+    """``measure.fields.raw`` is not on a qblox bus, so a scope that required it could never validate."""
+    op = Scope("readout", handle=MeasurementHandle("scope0"), averaging=False, trigger_level=0.5)
+    assert op.required_capabilities() == {"vendor.qblox.scope"}
 
 
 # ---------------------------------------------------------------------------
