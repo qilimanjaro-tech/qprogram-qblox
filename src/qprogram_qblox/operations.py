@@ -158,7 +158,7 @@ class Scope(MeasurementOperation):
         self.handle = handle
         self.averaging = averaging
         self.trigger_level = trigger_level
-        self.fields: tuple[str, ...] = (MeasurementField.RAW,)
+        self.fields: tuple[str, ...] = normalize_fields((MeasurementField.RAW,))
 
     def required_capabilities(self) -> set[str]:
         """Return ``vendor.qblox.scope``, the operation's identity token.
