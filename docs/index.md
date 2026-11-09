@@ -2,7 +2,7 @@
 
 Qblox extensions for [QProgram](https://qilimanjaro-tech.github.io/qprogram/), a Python DSL for pulse-level quantum experiments.
 
-The core DSL describes what is portable across instruments. This package describes what a Qblox cluster adds on top: acquisitions without a readout pulse, marker and trigger lines, and thresholded-acquisition setup on the QCM and QRM sequencers. Importing the package registers all of it. Nothing in the core changes.
+The core DSL describes what is portable across instruments. This package describes what a Qblox cluster adds on top: acquisitions without a readout pulse, the QRM scope, marker and trigger lines, and thresholded-acquisition setup on the QCM and QRM sequencers. Importing the package registers all of it. Nothing in the core changes.
 
 ## What the qblox namespace gives you
 
@@ -11,6 +11,7 @@ Every operation is reached as `program.qblox.<name>(...)` and writes one `qblox.
 | Operation                     | What it does                                                                                   |
 |-------------------------------|------------------------------------------------------------------------------------------------|
 | `acquire`                     | Integrate a readout bus against weights without playing a pulse. Returns a `MeasurementHandle`. |
+| `scope`                       | Record the raw ADC trace of the bus's QRM for the run. Returns a `MeasurementHandle`.           |
 | `set_markers`                 | Drive the four marker outputs from a 4-character mask, for example `"0001"`.                    |
 | `set_trigger`                 | Emit a trigger of a given duration on selected outputs, at the start or end of the operation.   |
 | `wait_trigger`                | Block the sequencer until a trigger arrives on an input port, up to a timeout.                  |
@@ -58,7 +59,7 @@ population = result.get(m0, field=qp.MeasurementField.STATE)
 print(population.dims, population.shape)  # ('angle',) (21,)
 ```
 
-`qp.simulate` is the reference software executor from the core package. It runs qblox operations generically: `qblox.acquire` produces measurement records, the rest leave the simulated outcome alone. A Qblox platform is a drop-in for the same call and lowers each operation onto real sequencers.
+`qp.simulate` is the reference software executor from the core package. It runs qblox operations generically: `qblox.acquire` and `qblox.scope` produce measurement records, the rest leave the simulated outcome alone. A Qblox platform is a drop-in for the same call and lowers each operation onto real sequencers.
 
 ## Where to go next
 

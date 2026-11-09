@@ -4,7 +4,7 @@ Three pages, in the order you usually need them.
 
 | Topic                                             | What it covers                                                                            |
 |---------------------------------------------------|-------------------------------------------------------------------------------------------|
-| [Operations](operations.md)                       | All six qblox operations: arguments, units, return values, and where each one takes effect. |
+| [Operations](operations.md)                       | All seven qblox operations: arguments, units, return values, and where each one takes effect. |
 | [Capabilities and profiles](capabilities.md)      | `QBLOX_DEFAULT_V1`, the tokens and limits it declares, and the two constraints it enforces. |
 | [Saving and loading](serialization.md)            | The `qblox.<name>` wire form, `require qblox 0.2`, version checks, and auto-activation.     |
 

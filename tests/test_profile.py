@@ -26,7 +26,8 @@ import math
 from typing import TYPE_CHECKING
 
 import numpy as np
-from qprogram import QProgram
+import pytest
+from qprogram import MeasurementField, QProgram
 from qprogram.blocks import Average, Sweep
 from qprogram.operations import Play
 from qprogram.protocol import (
@@ -102,6 +103,7 @@ def test_qblox_default_profile_carries_bus_side_tokens() -> None:
         "op.measure",
         "op.wait",
         "vendor.qblox.acquire",
+        "vendor.qblox.scope",
         "vendor.qblox.set_acquisition_rotation",
         "waveform.iq_drag",
         "measure.fields.iq",
@@ -144,6 +146,12 @@ def test_qblox_default_vendor_versions_record_qblox() -> None:
     assert "qblox" in caps.vendor_versions
 
 
+def test_qblox_default_profile_leaves_out_the_raw_field() -> None:
+    """A QRM has one scope per module, not one raw trace per measurement."""
+    caps = CompilerCapabilities.from_profile("qblox-default-v1")
+    assert "measure.fields.raw" not in caps.capabilities
+
+
 # ---------------------------------------------------------------------------
 # Happy path: every supported op validates clean
 # ---------------------------------------------------------------------------
@@ -174,9 +182,10 @@ def test_qblox_vendor_op_validates_clean() -> None:
 
 
 def test_every_vendor_op_in_the_profile_validates_clean() -> None:
-    """One program touching all six ``vendor.qblox.*`` tokens the profile lists."""
+    """One program touching all seven ``vendor.qblox.*`` tokens the profile lists."""
     caps = _make_caps()
     p = qprogram_qblox.QProgram()
+    p.qblox.scope("readout_q0", averaging=False, trigger_level=0.5)
     p.qblox.set_markers("drive_q0", "0001")
     p.qblox.set_trigger("drive_q0", duration=100, outputs=[1, 2], position="end")
     p.qblox.wait_trigger("drive_q0", duration=1000, port=1)
@@ -185,6 +194,36 @@ def test_every_vendor_op_in_the_profile_validates_clean() -> None:
     p.qblox.acquire("readout_q0", IQPair(I=Square(1.0, 200), Q=Square(1.0, 200)))
     diagnostics = _diagnostics(p, caps)
     assert diagnostics == [], diagnostics
+
+
+# ---------------------------------------------------------------------------
+# Raw traces: the scope, not the RAW field
+# ---------------------------------------------------------------------------
+
+
+def test_scope_around_averaged_acquisition_validates_clean() -> None:
+    caps = _make_caps()
+    p = qprogram_qblox.QProgram()
+    p.qblox.scope("readout_q0")
+    with p.average(1000):
+        p.qblox.acquire("readout_q0", IQPair(I=Square(1.0, 200), Q=Square(1.0, 200)))
+    diagnostics = _diagnostics(p, caps)
+    assert diagnostics == [], diagnostics
+
+
+@pytest.mark.parametrize("builder", ["measure", "acquire"])
+def test_raw_field_on_a_measurement_is_missing_capability(builder: str) -> None:
+    caps = _make_caps()
+    p = qprogram_qblox.QProgram()
+    weights = IQPair(I=Square(1.0, 200), Q=Square(1.0, 200))
+    fields = (MeasurementField.IQ, MeasurementField.RAW)
+    if builder == "measure":
+        p.measure("readout_q0", IQPair(I=Square(0.5, 200), Q=Square(0.0, 200)), weights, fields=fields)
+    else:
+        p.qblox.acquire("readout_q0", weights, fields=fields)
+    diagnostics = _diagnostics(p, caps)
+    assert [(d.severity, d.code) for d in diagnostics] == [("error", "missing-capability")]
+    assert "'measure.fields.raw'" in diagnostics[0].message
 
 
 # ---------------------------------------------------------------------------

@@ -101,7 +101,9 @@ Every operation in this package writes as one line, `qblox.<op>` followed by its
 ```
 body:
   qblox.acquire q[0].readout "weights" name="q0/readout/m0"
-  qblox.acquire q[0].readout "weights" name="q0_raw_trace" fields=["iq", "raw"]
+  qblox.acquire q[0].readout "weights" name="q0_cal" fields=["state", "iq"]
+  qblox.scope q[0].readout name="scope0"
+  qblox.scope q[1].readout name="scope1" averaging=false trigger_level=0.1
   qblox.set_markers q[0].drive "0001"
   qblox.set_trigger q[0].drive 100
   qblox.set_trigger q[0].drive 100 outputs=[1, 2] position="end"
@@ -113,7 +115,7 @@ body:
 
 The shape comes from the operation class's `__init__` signature, which the generic vendor serializer introspects. Constructor parameters with no default are written positionally, in declaration order. Parameters with a default are written as `key=value`, and only when the value differs from that default. That is why `set_trigger` appears twice above with two different lengths: `outputs` and `position` are optional, so the second line names them and the first does not.
 
-Nothing in this package registers a custom writer or parser callback except `acquire`, which needs the measurement handle. Adding an operation with an introspectable signature costs no serialization work at all.
+Nothing in this package registers a custom writer or parser callback except `acquire` and `scope`, which carry a measurement handle. Adding an operation with an introspectable signature costs no serialization work at all.
 
 ## How arguments are spelled
 
@@ -150,7 +152,7 @@ Expressions work in the argument positions that accept them. `set_acquisition_th
 `Acquire` is a measurement operation, so it serializes through the same pair of callbacks as core `measure`. The handle name rides on a `name=` kwarg and the requested fields on a `fields=[...]` list:
 
 ```
-  qblox.acquire q[0].readout "weights" name="q0_raw_trace" fields=["iq", "raw"]
+  qblox.acquire q[0].readout "weights" name="q0_cal" fields=["state", "iq"]
 ```
 
 The writer omits `fields=` when the acquisition asks for only the default `iq`, and canonically orders the names it does write. `fields=("iq", "state")` and `fields=("state", "iq")` both save as `fields=["state", "iq"]`, and both programs produce byte-identical text.
@@ -169,6 +171,8 @@ body:
   if q0/readout/m0.state == 1:
     qblox.set_markers q[0].drive "0010"
 ```
+
+`qblox.scope` carries its name the same way and loads from the first two spellings. The third is refused: a scope line without a name would take one from the `m0`, `m1`, ... counter, and every acquisition after it would load under a different name than the one it was saved with. The writer always emits the name, so only a hand-written line meets this.
 
 ## A full round trip
 
@@ -234,6 +238,8 @@ A malformed qblox line fails on load rather than loading with content missing. E
 - Too many positional tokens: `qblox.set_markers "drive_q0" "0001" "extra"` reports `3 positional tokens but the operation takes at most 2`.
 - A missing required argument, or a keyword the constructor does not accept.
 - A `name=` value that is not a quoted string: `name=5` reports `measurement name= must be a quoted string, got 5`.
+- A `qblox.scope` line with no name: `qblox.scope "readout_q0"` reports `qblox.scope needs its name as a quoted string, as in name="scope0"`.
+- A `qblox.scope` line whose `trigger_level` is outside `[-1, 1]`: `trigger_level=1.5` reports `trigger_level must be None or a number in [-1, 1], got 1.5`.
 - A `require` line the installed extension cannot satisfy.
 
 Argument *types* are not checked, because the parser feeds the tokens straight into the constructor. `qblox.set_markers "drive_q0" 0001` loads with a mask of `1`, the number. Keep the quotes on values that are strings.
