@@ -350,9 +350,9 @@ error qblox.arbitrary-wait-sweep
 
 The message names the variable and says what to use instead: a linear source, or a constant. Every source declares `KIND`, and the predicate reads it through `ctx.sweep_kind_of`, so a new arbitrary-valued source is covered the day it appears without touching this package.
 
-### A swept Drag width forces its loop host-side
+### A swept DRAG sigma forces its loop host-side
 
-The second predicate is a soft restriction. A Drag envelope's gaussian has a sigma of `duration / num_sigmas`, and its samples were computed at upload, so sweeping either field means re-uploading the waveform once per iteration. The `Play` is still a real-time operation; what cannot stay real-time is the **loop**. So the predicate yields a `DomainConstraint` excluding `"rt"` from the loop that binds the variable, found with `ctx.binding_loop_of`, once for each of the two fields that a loop binds:
+The second predicate is a soft restriction. A DRAG envelope's gaussian has a sigma of `duration / num_sigmas`, and its samples were computed at upload, so sweeping either field means re-uploading the waveform once per iteration. The `Play` is still a real-time operation; what cannot stay real-time is the **loop**. So the predicate yields a `DomainConstraint` excluding `"rt"` from the loop that binds the variable, found with `ctx.binding_loop_of`. It does so for every loop-bound variable the two fields depend on, whether a field is the variable itself or an expression of it such as `2 * v`:
 
 ```python
 from qprogram.waveforms import IQDrag

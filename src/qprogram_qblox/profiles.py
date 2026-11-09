@@ -25,7 +25,7 @@ Two predicates travel with the profile:
 - `_reject_arbitrary_sweep_at_wait_duration`, a hard [`Diagnostic`][qprogram.Diagnostic]. The
   operand register of the qblox wait instruction advances by a fixed step, so a duration swept from
   an arbitrary source fits no execution model qblox can compile, real-time or host-side.
-- `_drag_width_in_loop_is_host_only`, a soft [`DomainConstraint`][qprogram.DomainConstraint]. A
+- `_drag_sigma_in_loop_is_host_only`, a soft [`DomainConstraint`][qprogram.DomainConstraint]. A
   swept ``duration`` or ``num_sigmas`` changes an [`IQDrag`][qprogram.waveforms.IQDrag]'s sigma, and
   the sequencer cannot recompute that envelope between iterations, but the host can dispatch one
   shot per iteration. The constraint excludes ``"rt"`` alone, so the binding loop classifies as
@@ -48,7 +48,7 @@ from qprogram.protocol import (
     register_capability_tokens,
     register_profile,
 )
-from qprogram.variable import Variable
+from qprogram.variable import Expression, Variable
 from qprogram.waveforms.iq_drag import IQDrag
 
 # Register vendor-specific capability tokens *before* constructing the profile that names them:
@@ -118,11 +118,11 @@ def _reject_arbitrary_sweep_at_wait_duration(
         )
 
 
-def _drag_width_in_loop_is_host_only(
+def _drag_sigma_in_loop_is_host_only(
     node: Operation | Block,
     ctx: ValidationContext,
 ) -> Iterable[Diagnostic | DomainConstraint]:
-    """Restrict the binding loop of a swept ``IQDrag`` width to host-side dispatch.
+    """Restrict the binding loop of a swept ``IQDrag`` sigma to host-side dispatch.
 
     An [`IQDrag`][qprogram.waveforms.IQDrag]'s gaussian has a sigma of ``duration / num_sigmas``, so
     sweeping either field changes the envelope's shape, not only its scale. A qblox sequencer cannot
@@ -133,39 +133,42 @@ def _drag_width_in_loop_is_host_only(
     iterates. ``amplitude`` and ``drag_coefficient`` only scale the two channels, so sweeping them
     leaves the loop real-time.
 
-    The constraint targets the loop returned by [`binding_loop_of`][qprogram.ValidationContext.binding_loop_of],
-    not the ``Play``, because that is the node whose iteration mechanism is at stake. The classifier
-    subtracts ``"rt"`` from the loop's support and dispatches the ``Play`` as one real-time shot per
-    host-side iteration. A ``duration`` or ``num_sigmas`` that no loop binds is a constant at upload
-    time and is left alone.
+    A field reaches its variables directly (``num_sigmas=v``) or through an
+    [`Expression`][qprogram.Expression] (``num_sigmas=2 * v``), and either way a loop that binds one of
+    them changes sigma. The predicate reads them with ``variables()`` and targets the loop returned by
+    [`binding_loop_of`][qprogram.ValidationContext.binding_loop_of], not the ``Play``, because that is
+    the node whose iteration mechanism is at stake. The classifier subtracts ``"rt"`` from the loop's
+    support and dispatches the ``Play`` as one real-time shot per host-side iteration. A variable that
+    no loop binds is a constant at upload time and is left alone.
 
     Args:
         node (Operation | Block): The AST node currently being checked.
-        ctx (ValidationContext): Validation context, used to find the loop that binds each field.
+        ctx (ValidationContext): Validation context, used to find the loop that binds each variable.
 
     Yields:
         One [`DomainConstraint`][qprogram.DomainConstraint] excluding ``"rt"`` from the binding loop of
-        each of ``duration`` and ``num_sigmas`` that is a loop-bound variable, when ``node`` is a
+        each loop-bound variable that ``duration`` or ``num_sigmas`` depends on, when ``node`` is a
         ``play`` of an [`IQDrag`][qprogram.waveforms.IQDrag]. Nothing otherwise.
     """
     if not isinstance(node, Play) or not isinstance(node.waveform, IQDrag):
         return
     drag = node.waveform
     for field, value in (("duration", drag.duration), ("num_sigmas", drag.num_sigmas)):
-        if not isinstance(value, Variable):
+        if not isinstance(value, Expression):
             continue
-        binding_loop = ctx.binding_loop_of(value)
-        if binding_loop is None:
-            continue
-        yield DomainConstraint(
-            node=binding_loop,
-            exclude=frozenset({"rt"}),
-            reason=(
-                f"Variable {value.id!r} sweeps IQDrag.{field} in a contained Play, which changes the "
-                f"DRAG envelope's sigma and qblox cannot real-time-update it; the loop dispatches per "
-                f"shot host-side instead."
-            ),
-        )
+        for variable in sorted(value.variables(), key=lambda var: var.id):
+            binding_loop = ctx.binding_loop_of(variable)
+            if binding_loop is None:
+                continue
+            yield DomainConstraint(
+                node=binding_loop,
+                exclude=frozenset({"rt"}),
+                reason=(
+                    f"Variable {variable.id!r} sweeps IQDrag.{field} in a contained Play, which changes the "
+                    f"DRAG envelope's sigma and qblox cannot real-time-update it; the loop dispatches per "
+                    f"shot host-side instead."
+                ),
+            )
 
 
 _BUS_OPS: frozenset[str] = frozenset(
@@ -256,7 +259,7 @@ QBLOX_DEFAULT_V1 = Profile(
     limits={"min_wait_duration_ns": 4},
     predicates=(
         _reject_arbitrary_sweep_at_wait_duration,
-        _drag_width_in_loop_is_host_only,
+        _drag_sigma_in_loop_is_host_only,
     ),
     vendor_versions={"qblox": (0, 1, 0)},
 )
