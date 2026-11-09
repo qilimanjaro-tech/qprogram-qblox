@@ -350,17 +350,17 @@ error qblox.arbitrary-wait-sweep
 
 The message names the variable and says what to use instead: a linear source, or a constant. Every source declares `KIND`, and the predicate reads it through `ctx.sweep_kind_of`, so a new arbitrary-valued source is covered the day it appears without touching this package.
 
-### A swept Drag sigma forces its loop host-side
+### A swept Drag width forces its loop host-side
 
-The second predicate is a soft restriction. A qblox sequencer can re-arm a real-time loop with a new amplitude or duration, but a Drag envelope's `sigma` shapes samples that were computed at upload, so varying it means re-uploading the waveform once per iteration. The `Play` is still a real-time operation; what cannot stay real-time is the **loop**. So the predicate yields a `DomainConstraint` excluding `"rt"` from the loop that binds the variable, found with `ctx.binding_loop_of`:
+The second predicate is a soft restriction. A Drag envelope's gaussian has a sigma of `duration / num_sigmas`, and its samples were computed at upload, so sweeping either field means re-uploading the waveform once per iteration. The `Play` is still a real-time operation; what cannot stay real-time is the **loop**. So the predicate yields a `DomainConstraint` excluding `"rt"` from the loop that binds the variable, found with `ctx.binding_loop_of`, once for each of the two fields that a loop binds:
 
 ```python
 from qprogram.waveforms import IQDrag
 
 program = QProgram()
-sigma = program.variable("sigma")
-with program.sweep(sigma).from_range(4, 12, 2):
-    program.play("drive_q0", IQDrag(amplitude=0.5, duration=40, sigma=sigma, beta=0.1))
+num_sigmas = program.variable("num_sigmas")
+with program.sweep(num_sigmas).from_range(2, 6, 1):
+    program.play("drive_q0", IQDrag(amplitude=0.5, duration=40, num_sigmas=num_sigmas, drag_coefficient=0.1))
     program.qblox.acquire("readout_q0", "weights")
 
 print(qp.explain(program, caps))
@@ -369,9 +369,9 @@ print(qp.explain(program, caps))
 ```text
 plan — errors: 0 · warnings: 1 · info: 0
 body
-└─ for sigma in Range(start=4.0, stop=12.0, step=2.0):                           [host]     ~ forced-host: Variable 'sigma' sweeps IQDrag.sigma in a contained Play, which qblox cannot real-time-update; the loop dispatches per shot host-side instead
-   ├─ play "drive_q0" IQDrag(amplitude=0.5, duration=40, sigma=sigma, beta=0.1)  [rt|host]
-   └─ qblox.acquire "readout_q0" "weights" name="m0"                             [rt|host]
+└─ for num_sigmas in Range(start=2.0, stop=6.0, step=1.0):                                             [host]     ~ forced-host: Variable 'num_sigmas' sweeps IQDrag.num_sigmas in a contained Play, which changes the DRAG envelope's sigma and qblox cannot real-time-update it; the loop dispatches per shot host-side instead
+   ├─ play "drive_q0" IQDrag(amplitude=0.5, duration=40, num_sigmas=num_sigmas, drag_coefficient=0.1)  [rt|host]
+   └─ qblox.acquire "readout_q0" "weights" name="m0"                                                   [rt|host]
 ```
 
 The loop is `[host]`, its children are `[rt|host]`, and the diagnostic is a `warning`: the program runs, one real-time shot per host-side iteration, and the platform re-uploads the waveform between them. This is the shape every "hardware cannot vary this, but the host can step it" constraint takes. A constraint has to target a block, never an operation; an operation-targeted one is reported as `bad-domain-constraint`.

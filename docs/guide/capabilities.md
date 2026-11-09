@@ -182,7 +182,7 @@ The profile declares two predicates. They are the two constraints that cannot be
 | Predicate                      | Fires when                                                      | Yields            | Code                            | Severity |
 |--------------------------------|-----------------------------------------------------------------|-------------------|---------------------------------|----------|
 | Arbitrary sweep at `Wait.duration` | `Wait.duration` is a `Variable` whose binding source is arbitrary-kind | `Diagnostic`      | `qblox.arbitrary-wait-sweep`    | `error`  |
-| `IQDrag.sigma` swept in a loop     | `Play`'s waveform is an `IQDrag` whose `sigma` is a loop-bound `Variable` | `DomainConstraint` | `forced-host` (from the classifier) | `warning` |
+| `IQDrag` width swept in a loop     | `Play`'s waveform is an `IQDrag` whose `duration` or `num_sigmas` is a loop-bound `Variable` | `DomainConstraint` | `forced-host` (from the classifier) | `warning` |
 
 ### Arbitrary sweep at `Wait.duration`, a hard error
 
@@ -225,19 +225,19 @@ with program.sweep(dur, qp.Range(100, 500, 100)):
 qp.validate(program, caps)[0]  # []
 ```
 
-### `IQDrag.sigma` swept in a loop, a soft restriction
+### `IQDrag` width swept in a loop, a soft restriction
 
-The exact condition: the node is a `Play`, its waveform is an `IQDrag`, its `sigma` is a `Variable`, and `ctx.binding_loop_of(sigma)` finds a loop. A qblox sequencer re-arms a real-time loop with a new amplitude or duration from a register, but a Drag envelope's gaussian and derivative samples are computed at upload time. Changing `sigma` means re-uploading the waveform, which means one qblox shot per iteration, dispatched from the host.
+The exact condition: the node is a `Play`, its waveform is an `IQDrag`, its `duration` or its `num_sigmas` is a `Variable`, and `ctx.binding_loop_of` finds the loop that binds it. The gaussian under a Drag envelope has a sigma of `duration / num_sigmas`, so sweeping either field changes the shape of the envelope, not only its scale. Its gaussian and derivative samples are computed at upload time, so changing them means re-uploading the waveform, which means one qblox shot per iteration, dispatched from the host.
 
-Per-iteration dispatch does work, so this is a `DomainConstraint`, not an error. It targets the **binding loop**, never the `Play`, and excludes `"rt"` only. The classifier subtracts that from the loop's support set. The `Play` keeps `[rt]`: what changes is the loop's iteration mechanism, not how the pulse is emitted.
+Per-iteration dispatch does work, so this is a `DomainConstraint`, not an error. It targets the **binding loop**, never the `Play`, and excludes `"rt"` only. The classifier subtracts that from the loop's support set. The `Play` keeps `[rt]`: what changes is the loop's iteration mechanism, not how the pulse is emitted. When both fields are swept, each binding loop gets its own constraint.
 
-A `sigma` that is a bare unbound `Variable` does not fire the predicate. It is a constant at upload time.
+A `duration` or `num_sigmas` that is a bare unbound `Variable` does not fire the predicate. It is a constant at upload time.
 
 ```python
-program = QProgram(label="drag-sigma", schema=schema)
-sigma = program.variable("sigma")
-with program.average(100), program.sweep(sigma, qp.Range(4.0, 12.0, 2.0)):
-    program.play(q[0].drive, IQDrag(amplitude=0.5, duration=40, sigma=sigma, beta=0.1))
+program = QProgram(label="drag-width", schema=schema)
+num_sigmas = program.variable("num_sigmas")
+with program.average(100), program.sweep(num_sigmas, qp.Range(2.0, 6.0, 1.0)):
+    program.play(q[0].drive, IQDrag(amplitude=0.5, duration=40, num_sigmas=num_sigmas, drag_coefficient=0.1))
 
 diagnostics, plan = qp.validate(program, caps)
 for diagnostic in diagnostics:
@@ -249,22 +249,22 @@ The user-visible diagnostic is the classifier's `forced-host` warning, not the c
 
 ```python
 print(qp.explain(program, caps))
-# plan for 'drag-sigma' — errors: 0 · warnings: 1 · info: 0
+# plan for 'drag-width' — errors: 0 · warnings: 1 · info: 0
 # body
-# └─ average 100:                                                                     [host]     ~ forced-host: contains host-side-only sub-block 'Sweep' (Variable 'sigma' sweeps IQDrag.sigma in a contained Play, which qblox cannot real-time-update; the loop dispatches per shot host-side instead.)
-#    └─ for sigma in Range(start=4.0, stop=12.0, step=2.0):                           [host]
-#       └─ play q[0].drive IQDrag(amplitude=0.5, duration=40, sigma=sigma, beta=0.1)  [rt]
+# └─ average 100:                                                                                           [host]     ~ forced-host: contains host-side-only sub-block 'Sweep' (Variable 'num_sigmas' sweeps IQDrag.num_sigmas in a contained Play, which changes the DRAG envelope's sigma and qblox cannot real-time-update it; the loop dispatches per shot host-side instead.)
+#    └─ for num_sigmas in Range(start=2.0, stop=6.0, step=1.0):                                             [host]
+#       └─ play q[0].drive IQDrag(amplitude=0.5, duration=40, num_sigmas=num_sigmas, drag_coefficient=0.1)  [rt]
 ```
 
 The warning lands on `average`, the highest block in the forced chain, and its reason is attributed to the sub-block that caused it. The program still runs. It just runs slower than it looks, one upload per point.
 
-Sweeping any other `IQDrag` field leaves the loop real-time:
+Sweeping `amplitude` or `drag_coefficient` leaves the loop real-time, because each one scales a channel without changing the width of the envelope:
 
 ```python
 program = QProgram(label="drag-amp", schema=schema)
 amp = program.variable("amp")
 with program.sweep(amp, qp.Range(0.0, 1.0, 0.1)):
-    program.play(q[0].drive, IQDrag(amplitude=amp, duration=40, sigma=8, beta=0.1))
+    program.play(q[0].drive, IQDrag(amplitude=amp, duration=40, num_sigmas=4, drag_coefficient=0.1))
 
 diagnostics, plan = qp.validate(program, caps)
 diagnostics  # []

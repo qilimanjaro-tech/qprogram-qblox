@@ -154,7 +154,7 @@ qp.save(program, ".tmp/rotation.qp")
 
 resolved = program.with_waveforms(
     {
-        "pi_pulse": IQDrag(amplitude=0.5, duration=40, sigma=8, beta=0.1),
+        "pi_pulse": IQDrag(amplitude=0.5, duration=40, num_sigmas=5, drag_coefficient=0.1),
         "weights": IQPair(Square(1.0, 2000), Square(1.0, 2000)),
     }
 )
