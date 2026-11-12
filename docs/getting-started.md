@@ -90,7 +90,7 @@ print(qp.dumps(program))
 This one needs `qprogram-qdac` installed as well. The resulting file carries a `require` line per vendor, and the parser checks each one against the installed extension:
 
 ```
-#!QProgram 0.2
+#!QProgram 0.3
 
 require qblox 0.2
 require qdac 0.2

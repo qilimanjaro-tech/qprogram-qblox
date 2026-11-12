@@ -470,7 +470,7 @@ That is all the serialization work. The default writer reflects on `__init__` an
 ```python
 import qprogram as qp
 
-text = """#!QProgram 0.2
+text = """#!QProgram 0.3
 
 require qblox 0.2
 
@@ -509,7 +509,7 @@ Say 1.0 renames `set_markers` to `set_marker_mask`. A file written against 0.3 c
 
 <!-- check: skip -->
 ```
-#!QProgram 0.2
+#!QProgram 0.3
 
 require qblox 0.3
 
@@ -545,7 +545,7 @@ Four rules govern the rewrite:
 
 ```python
 def test_a_0_3_file_still_loads_after_the_rename():
-    text = '#!QProgram 0.2\n\nrequire qblox 0.3\n\nbody:\n  qblox.set_markers "drive_q0" "0001"\n'
+    text = '#!QProgram 0.3\n\nrequire qblox 0.3\n\nbody:\n  qblox.set_markers "drive_q0" "0001"\n'
     assert isinstance(qp.loads(text).body.elements[0], SetMarkerMask)
 ```
 

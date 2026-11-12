@@ -308,7 +308,7 @@ print(result.get(cal, field=qp.MeasurementField.STATE))
 The same program serializes to:
 
 ```
-#!QProgram 0.2
+#!QProgram 0.3
 
 require qblox 0.2
 

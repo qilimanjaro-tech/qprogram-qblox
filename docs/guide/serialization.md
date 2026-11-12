@@ -23,7 +23,7 @@ A loaded program is a plain `qprogram.QProgram`, not the pre-combined class from
 A program that touches a qblox operation carries one `require` line under the format header:
 
 ```
-#!QProgram 0.2
+#!QProgram 0.3
 
 require qblox 0.2
 ```
@@ -33,7 +33,7 @@ The writer emits it for you, and it walks the whole program to do so, so a `qblo
 The line is what makes a file self-contained. The parser does not require it: a hand-written file that calls `qblox.set_markers` with no `require qblox` line loads as long as the extension is already imported. Without the line nothing tells the parser which extension to go and find, and in a fresh interpreter that has never imported it the first dotted operation fails instead:
 
 ```python
-qp.loads('#!QProgram 0.2\n\nbody:\n  qblox.set_markers "drive_q0" "0001"\n')
+qp.loads('#!QProgram 0.3\n\nbody:\n  qblox.set_markers "drive_q0" "0001"\n')
 # ParseError: Line 4: unknown vendor operation qblox.'set_markers': no operation is
 #             registered under that name. Import the 'qblox' extension package before
 #             loading, and check the file's `require qblox <x.y>` declaration.
@@ -204,7 +204,7 @@ assert reloaded.body == program.body
 `print(text)` gives:
 
 ```
-#!QProgram 0.2
+#!QProgram 0.3
 
 require qblox 0.2
 
