@@ -48,6 +48,8 @@ from qprogram_qblox.profiles import QBLOX_DEFAULT_V1
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+    from qprogram import Expression
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -161,7 +163,7 @@ def test_full_program_with_every_supported_construct_validates_clean() -> None:
     caps = _make_caps()
     p = QProgram()
     freq = p.variable("freq")
-    pi_wf = IQDrag(amplitude=0.5, duration=40, sigma=8, beta=0.1)
+    pi_wf = IQDrag(amplitude=0.5, duration=40, num_sigmas=4, drag_coefficient=0.1)
     readout_wf = IQPair(I=Square(0.5, 200), Q=Square(0.0, 200))
     weights = IQPair(I=Square(1.0, 200), Q=Square(1.0, 200))
     with p.average(1000), p.sweep(freq, Range(5e9, 6e9, 1e6)):
@@ -253,38 +255,121 @@ def test_linear_sweep_at_wait_duration_is_accepted() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Predicate: IQDrag-sigma sweep, DomainConstraint(exclude=rt), forced-host warning
+# Predicate: IQDrag sigma sweep, DomainConstraint(exclude=rt), forced-host warning
 # ---------------------------------------------------------------------------
 
 
-def test_iq_drag_sigma_sweep_forces_host() -> None:
-    """The DomainConstraint excludes rt, so the binding loop classifies as ``{host}`` alone and a
-    single ``forced-host`` warning surfaces on the topmost forced block.
+def _drag(
+    *,
+    amplitude: float | Expression = 0.5,
+    duration: int | Expression = 40,
+    num_sigmas: float | Expression = 4,
+    drag_coefficient: float | Expression = 0.1,
+) -> IQDrag:
+    """Build an IQDrag from constant fields; a test passes the one it sweeps."""
+    return IQDrag(amplitude=amplitude, duration=duration, num_sigmas=num_sigmas, drag_coefficient=drag_coefficient)
+
+
+_DRAG_SWEEPS: dict[str, Range] = {
+    "amplitude": Range(0.0, 1.0, 0.1),
+    "duration": Range(20, 60, 10),
+    "num_sigmas": Range(2.0, 6.0, 1.0),
+    "drag_coefficient": Range(-1.0, 1.0, 0.5),
+}
+"""A sweep source per IQDrag field, in the field's own units."""
+
+
+def test_iq_drag_play_with_constant_fields_validates_clean() -> None:
+    """A plain DRAG play, nothing swept, is real-time and raises no diagnostic."""
+    caps = _make_caps()
+    p = QProgram()
+    p.play("drive_q0", _drag())
+    diagnostics, plan = validate(p, caps)
+    assert diagnostics == [], diagnostics
+    play = next(n for n in p.body.walk() if isinstance(n, Play))
+    assert plan[play] == frozenset({"rt"})
+
+
+@pytest.mark.parametrize("field", ["duration", "num_sigmas"])
+def test_iq_drag_sigma_sweep_forces_host(field: str) -> None:
+    """Sigma is ``duration / num_sigmas``, so sweeping either one re-shapes the envelope per iteration.
+
+    The DomainConstraint excludes rt, so the binding loop classifies as ``{host}`` alone and a single
+    ``forced-host`` warning surfaces on the topmost forced block.
     """
     caps = _make_caps()
     p = QProgram()
-    sigma = p.variable("sigma")
-    with p.average(100), p.sweep(sigma, Range(1.0, 10.0, 1.0)):
-        p.play("drive_q0", IQDrag(amplitude=0.5, duration=40, sigma=sigma, beta=0.1))
+    swept = p.variable(field)
+    with p.average(100), p.sweep(swept, _DRAG_SWEEPS[field]):
+        p.play("drive_q0", _drag(**{field: swept}))
     diagnostics, plan = validate(p, caps)
     errors = [d for d in diagnostics if d.severity == "error"]
     assert errors == [], errors
     forced = [d for d in diagnostics if d.code == "forced-host"]
     assert len(forced) == 1, forced
     assert forced[0].severity == "warning"
+    assert f"IQDrag.{field}" in forced[0].message
     # The topmost forced block is the Average, whose parent is the root body.
     assert isinstance(forced[0].node, Average)
     sweep_block = next(n for n in p.body.walk() if isinstance(n, Sweep))
     assert plan[sweep_block] == frozenset({"host"})
 
 
-def test_iq_drag_amplitude_sweep_stays_rt() -> None:
-    """Sweeping IQDrag.amplitude instead of sigma leaves the constraint quiet and rt in the plan."""
+def test_iq_drag_sigma_swept_by_two_loops_forces_both_host() -> None:
+    """Each field's binding loop gets its own constraint."""
     caps = _make_caps()
     p = QProgram()
-    amp = p.variable("amp")
-    with p.sweep(amp, Range(0.0, 1.0, 0.1)):
-        p.play("drive_q0", IQDrag(amplitude=amp, duration=40, sigma=8, beta=0.1))
+    duration = p.variable("duration")
+    num_sigmas = p.variable("num_sigmas")
+    with p.sweep(duration, _DRAG_SWEEPS["duration"]), p.sweep(num_sigmas, _DRAG_SWEEPS["num_sigmas"]):
+        p.play("drive_q0", _drag(duration=duration, num_sigmas=num_sigmas))
+    diagnostics, plan = validate(p, caps)
+    errors = [d for d in diagnostics if d.severity == "error"]
+    assert errors == [], errors
+    sweeps = [n for n in p.body.walk() if isinstance(n, Sweep)]
+    assert len(sweeps) == 2
+    assert all(plan[sweep] == frozenset({"host"}) for sweep in sweeps)
+
+
+@pytest.mark.parametrize("field", ["duration", "num_sigmas"])
+def test_iq_drag_sigma_swept_through_an_expression_forces_host(field: str) -> None:
+    """``2 * v`` changes sigma as surely as ``v`` does, so its binding loop goes host-side too."""
+    caps = _make_caps()
+    p = QProgram()
+    swept = p.variable(field)
+    with p.sweep(swept, _DRAG_SWEEPS[field]):
+        p.play("drive_q0", _drag(**{field: 2 * swept}))
+    diagnostics, plan = validate(p, caps)
+    errors = [d for d in diagnostics if d.severity == "error"]
+    assert errors == [], errors
+    sweep_block = next(n for n in p.body.walk() if isinstance(n, Sweep))
+    assert plan[sweep_block] == frozenset({"host"})
+
+
+def test_iq_drag_sigma_from_two_swept_variables_forces_both_host() -> None:
+    """An expression of two loop-bound variables constrains both loops."""
+    caps = _make_caps()
+    p = QProgram()
+    base = p.variable("base")
+    offset = p.variable("offset")
+    with p.sweep(base, Range(2.0, 4.0, 1.0)), p.sweep(offset, Range(0.0, 2.0, 1.0)):
+        p.play("drive_q0", _drag(num_sigmas=base + offset))
+    diagnostics, plan = validate(p, caps)
+    errors = [d for d in diagnostics if d.severity == "error"]
+    assert errors == [], errors
+    sweeps = [n for n in p.body.walk() if isinstance(n, Sweep)]
+    assert len(sweeps) == 2
+    assert all(plan[sweep] == frozenset({"host"}) for sweep in sweeps)
+
+
+@pytest.mark.parametrize("field", ["amplitude", "drag_coefficient"])
+def test_iq_drag_sweep_of_another_field_stays_rt(field: str) -> None:
+    """Amplitude and drag coefficient scale the envelope without changing its sigma, so the loop stays rt."""
+    caps = _make_caps()
+    p = QProgram()
+    swept = p.variable(field)
+    with p.sweep(swept, _DRAG_SWEEPS[field]):
+        p.play("drive_q0", _drag(**{field: swept}))
     diagnostics, plan = validate(p, caps)
     forced = [d for d in diagnostics if d.code == "forced-host"]
     assert forced == []
@@ -292,12 +377,13 @@ def test_iq_drag_amplitude_sweep_stays_rt() -> None:
     assert "rt" in plan[sweep_block]
 
 
-def test_iq_drag_sigma_without_a_binding_loop_stays_rt() -> None:
-    """A ``sigma`` variable no loop binds is a constant at upload time, so nothing is excluded."""
+@pytest.mark.parametrize("field", ["duration", "num_sigmas"])
+def test_iq_drag_sigma_without_a_binding_loop_stays_rt(field: str) -> None:
+    """A variable no loop binds is a constant at upload time, so nothing is excluded."""
     caps = _make_caps()
     p = QProgram()
-    sigma = p.variable("sigma")
-    p.play("drive_q0", IQDrag(amplitude=0.5, duration=40, sigma=sigma, beta=0.1))
+    unbound = p.variable(field)
+    p.play("drive_q0", _drag(**{field: unbound}))
     diagnostics, plan = validate(p, caps)
     assert diagnostics == [], diagnostics
     play = next(n for n in p.body.walk() if isinstance(n, Play))
@@ -327,7 +413,7 @@ def test_device_can_tighten_limits_via_platform_overrides() -> None:
     v1 = p.variable("a")
     v2 = p.variable("b")
     with p.sweep(v1, Range(0, 1, 0.1)), p.sweep(v2, Range(0, 1, 0.1)):
-        p.play("drive_q0", IQDrag(amplitude=0.5, duration=40, sigma=8, beta=0.1))
+        p.play("drive_q0", IQDrag(amplitude=0.5, duration=40, num_sigmas=4, drag_coefficient=0.1))
     diagnostics = _diagnostics(p, caps)
     assert any(
         diag.code == "limit-exceeded" and diag.limit and diag.limit[0] == "max_loop_nesting" for diag in diagnostics
