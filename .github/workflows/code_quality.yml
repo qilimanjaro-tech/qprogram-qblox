@@ -43,7 +43,7 @@ jobs:
       # the code, so linting needs the linters and nothing else.
       - name: Install the linters
         run: |
-          uv sync --frozen --only-group dev --no-install-project
+          uv sync --locked --no-build --only-group dev --no-install-project
           echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
@@ -78,7 +78,7 @@ jobs:
 
       - name: Install the project
         run: |
-          uv sync --frozen --group dev
+          uv sync --locked --no-build --group dev
           echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 

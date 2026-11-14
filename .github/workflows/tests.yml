@@ -53,7 +53,7 @@ jobs:
 
       - name: Install the project
         run: |
-          uv sync --frozen --group dev
+          uv sync --locked --no-build --group dev
           echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
