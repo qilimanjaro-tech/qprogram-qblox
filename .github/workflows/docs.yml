@@ -44,7 +44,7 @@ jobs:
       # project itself has to be installed, not just the docs tooling.
       - name: Install the project and the docs tooling
         run: |
-          uv sync --frozen --group docs
+          uv sync --locked --no-build --group docs
           echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
