@@ -43,7 +43,7 @@ with program.average(shots=1000):
 # Bind calibrated waveforms at the very end; the program itself only names them.
 resolved = program.with_waveforms(
     {
-        "pi_pulse": IQDrag(amplitude=0.5, duration=40, sigma=8, beta=0.1),
+        "pi_pulse": IQDrag(amplitude=0.5, duration=40, num_sigmas=5, drag_coefficient=0.1),
         "weights": IQPair(Square(1.0, 2000), Square(1.0, 2000)),
     }
 )
@@ -59,7 +59,7 @@ print(population.dims, population.shape)  # ('angle',) (21,)
 
 - **Seven operations under `program.qblox`.** `acquire` reads a bus without playing a readout pulse, and `scope` records the raw ADC trace of the bus's QRM for the run. `set_markers` and `set_trigger` drive the digital outputs, `wait_trigger` waits on a digital input. `set_acquisition_threshold` and `set_acquisition_rotation` configure thresholded acquisition, and take effect off the sequencer as slow-control parameter writes at execution time.
 - **Typed or dynamic access.** `qprogram_qblox.QProgram` has `.qblox` typed for autocomplete, `QbloxMixin` composes with other vendor mixins, and the plain `qprogram.QProgram` gets the same namespace at runtime once this package is imported.
-- **A capability profile.** `QBLOX_DEFAULT_V1` declares the operations, waveforms, measurement fields, and limits of a qblox-driven bus, plus the two constraints the hardware imposes: an arbitrary-valued sweep cannot drive a wait duration, and sweeping an `IQDrag` sigma forces its loop to iterate host-side.
+- **A capability profile.** `QBLOX_DEFAULT_V1` declares the operations, waveforms, measurement fields, and limits of a qblox-driven bus, plus the two constraints the hardware imposes: an arbitrary-valued sweep cannot drive a wait duration, and sweeping the `duration` or `num_sigmas` of an `IQDrag` forces its loop to iterate host-side.
 - **Round-tripping `.qp` files.** Every operation serializes as `qblox.<name> <args>` and reloads to a structurally equal program. Files carry `require qblox 0.2`, which the parser checks against the installed version.
 - **Auto-activation on load.** `qprogram.load("file.qp")` imports this package on demand when the file requires the `qblox` vendor, so a reader never has to know which extensions a file uses.
 

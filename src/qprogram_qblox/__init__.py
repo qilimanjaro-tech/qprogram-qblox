@@ -73,7 +73,7 @@ Combining several vendors means listing their mixins in the MRO::
 
 A ``.qp`` file carrying qblox operations names the vendor in its header::
 
-    #!QProgram 1.0
+    #!QProgram 0.3
 
     require qblox 0.1
 
