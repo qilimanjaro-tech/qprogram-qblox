@@ -75,7 +75,7 @@ A ``.qp`` file carrying qblox operations names the vendor in its header::
 
     #!QProgram 0.3
 
-    require qblox 0.1
+    require qblox 0.3
 
     body:
       qblox.acquire "readout_q0" "weights"
