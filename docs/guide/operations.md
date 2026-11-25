@@ -310,7 +310,7 @@ The same program serializes to:
 ```
 #!QProgram 0.3
 
-require qblox 0.2
+require qblox 0.3
 
 metadata:
   label: "discrimination"

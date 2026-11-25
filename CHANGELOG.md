@@ -4,6 +4,21 @@ Notable changes to QProgram Qblox, newest first. Each entry starts life as a new
 
 <!-- towncrier release notes start -->
 
+## 0.3.0 (2026-11-25)
+
+### Added
+
+- `qp.qblox.scope(bus, *, averaging=True, trigger_level=None, name=None)` records the raw ADC trace of the QRM that drives a readout bus, for the whole run, and returns a `MeasurementHandle` to pass to `result.get(scope, field="raw")`. Scopes are named `scope0`, `scope1`, ... on a counter of their own, so adding one never renames an acquisition. ([PR #8](https://github.com/qilimanjaro-tech/qprogram-qblox/pull/8))
+
+### Changed
+
+- This package now requires qprogram 0.3, and the `qblox-default-v1` check on DRAG pulses reads `IQDrag`'s `duration` and `num_sigmas` in place of the removed `sigma`. A loop that changes the gaussian's sigma, `duration / num_sigmas`, now runs host-side whether it sweeps either field directly or through an expression such as `2 * v`; before, only a bare variable at `sigma` did. ([PR #9](https://github.com/qilimanjaro-tech/qprogram-qblox/pull/9))
+
+### Removed
+
+- `qblox-default-v1` no longer lists `measure.fields.raw`, so a `measure` or a `qblox.acquire` that asks for the `raw` field now fails `qp.validate` with `missing-capability`. A QRM records one scope trace per run rather than one per measurement; use `qp.qblox.scope` for it. ([PR #8](https://github.com/qilimanjaro-tech/qprogram-qblox/pull/8))
+
+
 ## 0.2.0 (2026-09-08)
 
 This release requires qprogram 0.2, which is what a `require qblox` line is now read against. One thing follows from the core release rather than from anything here: a `.qp` file written before it no longer loads, because its `#!QProgram 1.0` header reads as a later version than the `0.2` the core writes now, and nothing runs backwards. A file whose header is current is carried up instead, since a `require qblox` line naming an earlier major is migrated rather than refused.
