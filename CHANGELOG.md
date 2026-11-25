@@ -4,7 +4,7 @@ Notable changes to QProgram Qblox, newest first. Each entry starts life as a new
 
 <!-- towncrier release notes start -->
 
-## 0.3.0 (2026-11-17)
+## 0.3.0 (2026-11-25)
 
 ### Added
 
